@@ -2,7 +2,7 @@
 // in by the red wall, while the yellow sun is open from the start, so a yellow pot can look safe and
 // still wait until the wall around the window is gone.
 
-import { parsePicture } from './picture';
+import { parsePicture } from './picture.ts';
 
 export const HOUSE = parsePicture(
   [

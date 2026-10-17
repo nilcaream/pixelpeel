@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AT_BUCKET, EMPTY, createState, findTarget, pick, status, tick, type Pot, type State } from './engine';
-import { parsePicture } from './picture';
+import { AT_BUCKET, EMPTY, createState, findTarget, pick, status, tick, type Pot, type State } from './engine.ts';
+import { parsePicture } from './picture.ts';
 
 const COLOURS = { A: '#ff0000', B: '#ffff00' };
 const A = 0;

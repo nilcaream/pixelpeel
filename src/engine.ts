@@ -7,7 +7,7 @@
 // bucket onto the ring cell under the bucket, goes to the closest pixel of its colour that it can
 // reach, lifts it (the square empties at that moment), and carries it back the same way into the bucket.
 
-import type { Picture } from './picture';
+import type { Picture } from './picture.ts';
 
 /** A square of the picture whose pixel is gone. */
 export const EMPTY = -1;

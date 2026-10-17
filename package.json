@@ -9,9 +9,11 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bake": "node scripts/bake.ts"
   },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.3",
     "vitest": "^5.0.3"
