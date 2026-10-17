@@ -1,0 +1,19 @@
+{
+  "name": "pixelpeel",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A puzzle in the browser: little dots peel a pixel picture apart, colour by colour, and you choose the order",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  }
+}
