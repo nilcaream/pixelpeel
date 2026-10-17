@@ -7,7 +7,7 @@ import { HOUSE, HOUSE_RULES } from './level';
 import './style.css';
 
 /** How many cells a dot moves per second; a constant to tune. */
-const STEPS_PER_SECOND = 20;
+const STEPS_PER_SECOND = 10;
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -110,6 +110,22 @@ function draw(frac: number): void {
       ctx.fillRect(left + (x + 1) * cell, top + (y + 1) * cell, Math.ceil(cell), Math.ceil(cell));
     }
   }
+
+  // The grid of the picture's pixels, over filled and emptied squares alike.
+  ctx.beginPath();
+  for (let i = 0; i <= state.width; i++) {
+    const x = left + (i + 1) * cell;
+    ctx.moveTo(x, top + cell);
+    ctx.lineTo(x, top + (state.height + 1) * cell);
+  }
+  for (let j = 0; j <= state.height; j++) {
+    const y = top + (j + 1) * cell;
+    ctx.moveTo(left + cell, y);
+    ctx.lineTo(left + (state.width + 1) * cell, y);
+  }
+  ctx.lineWidth = Math.max(1, cell * 0.06);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+  ctx.stroke();
 
   for (const dot of state.dots) {
     const a = dot.route[dot.pos] as number;
