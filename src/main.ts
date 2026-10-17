@@ -127,28 +127,7 @@ function draw(frac: number): void {
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
   ctx.stroke();
 
-  state.buckets.forEach((bucket, i) => {
-    const x = bucketCentreX(i);
-    const size = layout.bucketSize;
-    if (!bucket) {
-      roundRect(x - size / 2, layout.bucketY, size, size, size * 0.22);
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = '#55555f';
-      ctx.stroke();
-      ctx.setLineDash([]);
-      return;
-    }
-    drawPot(x, layout.bucketY, size, state.palette[bucket.colour] as string, bucket.count - bucket.pickedUp);
-  });
-
-  state.columns.forEach((pots, i) => {
-    pots.slice(0, HOUSE_RULES.visible).forEach((pot, k) => {
-      drawPot(columnX(i), potY(k), layout.potSize, state.palette[pot.colour] as string, pot.count);
-    });
-  });
-
-  // Dots are drawn last, so they are seen leaving and entering their bucket.
+  // Dots go under the buckets, so a bucket's number stays readable while dots leave and enter it.
   const at = (step: number, bucket: number): [number, number] => {
     if (step === AT_BUCKET) return [bucketCentreX(bucket), layout.bucketY + layout.bucketSize / 2];
     const fx = step % fw;
@@ -172,6 +151,27 @@ function draw(frac: number): void {
       ctx.stroke();
     }
   }
+
+  state.buckets.forEach((bucket, i) => {
+    const x = bucketCentreX(i);
+    const size = layout.bucketSize;
+    if (!bucket) {
+      roundRect(x - size / 2, layout.bucketY, size, size, size * 0.22);
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#55555f';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    drawPot(x, layout.bucketY, size, state.palette[bucket.colour] as string, bucket.count - bucket.pickedUp);
+  });
+
+  state.columns.forEach((pots, i) => {
+    pots.slice(0, HOUSE_RULES.visible).forEach((pot, k) => {
+      drawPot(columnX(i), potY(k), layout.potSize, state.palette[pot.colour] as string, pot.count);
+    });
+  });
 }
 
 function columnX(i: number): number {
