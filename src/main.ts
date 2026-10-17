@@ -1,7 +1,7 @@
 // The page: draws the state on a canvas, turns a tap on a column into a pick, and ticks the rules at a
 // fixed rate. All the rules live in engine.ts; this file only shows them.
 
-import { EMPTY, createState, entryCell, frameWidth, pick, status, tick, type State } from './engine';
+import { AT_BUCKET, EMPTY, createState, entryCell, frameWidth, pick, status, tick, type State } from './engine';
 import { deal } from './generator';
 import { HOUSE, HOUSE_RULES } from './level';
 import './style.css';
@@ -127,26 +127,6 @@ function draw(frac: number): void {
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
   ctx.stroke();
 
-  for (const dot of state.dots) {
-    const a = dot.route[dot.pos] as number;
-    const b = (dot.route[dot.pos + 1] ?? a) as number;
-    const ax = a % fw;
-    const ay = (a - ax) / fw;
-    const bx = b % fw;
-    const by = (b - bx) / fw;
-    const x = left + (ax + (bx - ax) * frac + 0.5) * cell;
-    const y = top + (ay + (by - ay) * frac + 0.5) * cell;
-    ctx.beginPath();
-    ctx.arc(x, y, cell * 0.36, 0, Math.PI * 2);
-    ctx.fillStyle = state.palette[dot.colour] as string;
-    ctx.fill();
-    if (dot.carrying) {
-      ctx.lineWidth = Math.max(1.5, cell * 0.14);
-      ctx.strokeStyle = '#111114';
-      ctx.stroke();
-    }
-  }
-
   state.buckets.forEach((bucket, i) => {
     const x = bucketCentreX(i);
     const size = layout.bucketSize;
@@ -162,21 +142,52 @@ function draw(frac: number): void {
     drawPot(x, layout.bucketY, size, state.palette[bucket.colour] as string, bucket.count - bucket.pickedUp);
   });
 
-  const canPick = state.buckets.includes(null);
   state.columns.forEach((pots, i) => {
-    const x = layout.left + (i + 0.5) * layout.columnWidth;
     pots.slice(0, HOUSE_RULES.visible).forEach((pot, k) => {
-      ctx.globalAlpha = k === 0 ? (canPick ? 1 : 0.7) : 0.45;
-      drawPot(x, layout.columnsY + k * (layout.potSize + layout.potGap), layout.potSize, state.palette[pot.colour] as string, pot.count);
+      drawPot(columnX(i), potY(k), layout.potSize, state.palette[pot.colour] as string, pot.count);
     });
-    ctx.globalAlpha = 1;
   });
+
+  // Dots are drawn last, so they are seen leaving and entering their bucket.
+  const at = (step: number, bucket: number): [number, number] => {
+    if (step === AT_BUCKET) return [bucketCentreX(bucket), layout.bucketY + layout.bucketSize / 2];
+    const fx = step % fw;
+    const fy = (step - fx) / fw;
+    return [left + (fx + 0.5) * cell, top + (fy + 0.5) * cell];
+  };
+  for (const dot of state.dots) {
+    const a = dot.route[dot.pos] as number;
+    const b = (dot.route[dot.pos + 1] ?? a) as number;
+    const [ax, ay] = at(a, dot.bucket);
+    const [bx, by] = at(b, dot.bucket);
+    const x = ax + (bx - ax) * frac;
+    const y = ay + (by - ay) * frac;
+    ctx.beginPath();
+    ctx.arc(x, y, cell * 0.36, 0, Math.PI * 2);
+    ctx.fillStyle = state.palette[dot.colour] as string;
+    ctx.fill();
+    if (dot.carrying) {
+      ctx.lineWidth = Math.max(1.5, cell * 0.14);
+      ctx.strokeStyle = '#111114';
+      ctx.stroke();
+    }
+  }
 }
 
+function columnX(i: number): number {
+  return layout.left + (i + 0.5) * layout.columnWidth;
+}
+
+function potY(row: number): number {
+  return layout.columnsY + row * (layout.potSize + layout.potGap);
+}
+
+/** The column whose top pot is under the point, or −1: only the top pot itself can be tapped. */
 function columnAt(x: number, y: number): number {
-  if (y < layout.columnsY - layout.potGap) return -1;
-  const i = Math.floor((x - layout.left) / layout.columnWidth);
-  return i >= 0 && i < state.columns.length ? i : -1;
+  const half = layout.potSize / 2;
+  const top = potY(0);
+  if (y < top || y > top + layout.potSize) return -1;
+  return state.columns.findIndex((pots, i) => pots.length > 0 && Math.abs(x - columnX(i)) <= half);
 }
 
 canvas.addEventListener('pointerdown', (e) => {

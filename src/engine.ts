@@ -4,13 +4,16 @@
 //
 // Dots walk on the frame grid: the picture plus a ring one cell wide around it, so a dot can walk
 // along the outside of the picture and in through squares that are already empty. A dot leaves its
-// bucket from the ring cell under the bucket, goes to the closest pixel of its colour that it can
-// reach, lifts it (the square empties at that moment), and carries it back the same way.
+// bucket onto the ring cell under the bucket, goes to the closest pixel of its colour that it can
+// reach, lifts it (the square empties at that moment), and carries it back the same way into the bucket.
 
 import type { Picture } from './picture';
 
 /** A square of the picture whose pixel is gone. */
 export const EMPTY = -1;
+
+/** A step of a dot's route that is the bucket itself: every route starts and ends there. */
+export const AT_BUCKET = -1;
 
 /** How many ticks a bucket waits between sending out two dots. */
 export const LAUNCH_GAP = 2;
@@ -34,7 +37,7 @@ export interface Bucket {
 export interface Dot {
   bucket: number;
   colour: number;
-  /** Frame cells from the ring cell under the bucket to the pixel and back. */
+  /** From the bucket (AT_BUCKET) through frame cells to the pixel, and the same way back into the bucket. */
   route: number[];
   /** The index in route where the pixel is. */
   turn: number;
@@ -198,7 +201,8 @@ export function tick(s: State): State {
     if (!target) return;
     const back = target.path.slice(0, -1).reverse();
     next.claimed[target.square] = 1;
-    next.dots.push({ bucket: i, colour: b.colour, route: [...target.path, ...back], turn: target.path.length - 1, pos: 0, carrying: false });
+    const route = [AT_BUCKET, ...target.path, ...back, AT_BUCKET];
+    next.dots.push({ bucket: i, colour: b.colour, route, turn: target.path.length, pos: 0, carrying: false });
     b.claimed += 1;
     b.sinceLaunch = 0;
   });

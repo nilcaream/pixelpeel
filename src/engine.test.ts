@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY, createState, findTarget, pick, status, tick, type Pot, type State } from './engine';
+import { AT_BUCKET, EMPTY, createState, findTarget, pick, status, tick, type Pot, type State } from './engine';
 import { parsePicture } from './picture';
 
 const COLOURS = { A: '#ff0000', B: '#ffff00' };
@@ -65,6 +65,14 @@ describe('buckets', () => {
   it('takes no pot when every bucket is full', () => {
     const s = pick(stateOf(['AB'], [[{ colour: A, count: 1 }, { colour: B, count: 1 }]]), 0);
     expect(pick(s, 0)).toBe(s);
+  });
+
+  it('sends each dot out of the bucket and back into it', () => {
+    const s = tick(pick(stateOf(['AAA'], [[{ colour: A, count: 3 }]]), 0));
+    const route = s.dots[0]?.route ?? [];
+    expect(route[0]).toBe(AT_BUCKET);
+    expect(route[route.length - 1]).toBe(AT_BUCKET);
+    expect(route.filter((step) => step === AT_BUCKET).length).toBe(2);
   });
 
   it('counts down at each pickup and frees itself only when its last dot is home', () => {
