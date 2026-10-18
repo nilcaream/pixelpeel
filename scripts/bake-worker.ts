@@ -1,17 +1,13 @@
-// One worker of the bake: measures a picture's potential or bakes a level, as scripts/bake.ts asks.
+// One worker of the bake: bakes the level scripts/bake.ts asks for, and passes on the bake's log lines.
 
 import { parentPort } from 'node:worker_threads';
-import { bakeLevel, potential, type LevelSpec } from '../src/bake.ts';
-import { readPng } from './png.ts';
+import { bakeLevel } from '../src/bake.ts';
 
-export type Task = { kind: 'potential'; spec: LevelSpec } | { kind: 'bake'; spec: LevelSpec };
-
-parentPort?.on('message', ({ id, task }: { id: number; task: Task }) => {
+parentPort?.on('message', ({ number }: { number: number }) => {
   try {
-    const image = readPng(task.spec.source.file);
-    const result = task.kind === 'potential' ? potential(task.spec, image) : bakeLevel(task.spec, image);
-    parentPort?.postMessage({ id, result });
+    const result = bakeLevel(number, (line) => parentPort?.postMessage({ log: line }));
+    parentPort?.postMessage({ result });
   } catch (e) {
-    parentPort?.postMessage({ id, error: e instanceof Error ? e.message : String(e) });
+    parentPort?.postMessage({ error: e instanceof Error ? e.message : String(e) });
   }
 });

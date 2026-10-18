@@ -1,49 +1,54 @@
 // What a level is, and the rules that place levels on the difficulty waves. Levels go in waves of
-// easy, medium, hard, with a very hard one at every tenth; every ten levels, one part of the structure
-// grows (the picture's size, then its colours, then the columns), so a level is harder than the level
-// with the same band ten earlier. Difficulty is measured: the share of sensible pick orders that win.
+// easy, medium, hard, with a very hard one at every tenth.
+//
+// Difficulty is measured on skill, not luck. A casual player (the sensible player: never a pot whose
+// colour reaches nothing now) should lose the harder levels, while a player who thinks a few picks ahead
+// on the pots the page shows should win them. How far ahead one must think is the level's depth. What
+// a thinker gains by seeing the hidden pots too is the level's luck, and it must be next to nothing:
+// the pick that decides a game is never a blind guess.
 
-import type { Knobs, Player } from './generator.ts';
+import type { Knobs } from './generator.ts';
 import type { Pot } from './rules.ts';
 
 export type Band = 'easy' | 'medium' | 'hard' | 'very hard';
 
+/** How many pots of each column the page shows, and so how many a thinker sees. */
+export const VISIBLE = 3;
+
+/** How many casual games measure a level. */
+export const CASUAL_GAMES = 200;
+
+/** How many games each thinker plays. */
+export const THINKER_GAMES = 20;
+
+/** A thinker wins a level when it wins at least this share of its games (a band may ask less). */
+export const THINKER_WINS = 0.9;
+
+/** The most a level's luck may be: what seeing the hidden pots adds to the best thinker's share. */
+export const MAX_LUCK = 0.05;
+
+export interface BandRule {
+  /** The casual share of games won, from (inclusive) and to (exclusive). */
+  casual: readonly [number, number];
+  /** The depth a thinker needs to win, at least and at most. */
+  depth: readonly [number, number];
+  /** The most the thinkers of depth 1, 2, … may win, so the level is not won by thinking less. */
+  shallow: readonly number[];
+  /** The share a thinker must win, when not THINKER_WINS. */
+  wins?: number;
+}
+
 /**
- * The share of games won, from (inclusive) and to (exclusive). Easy reaches up to the cap of its
- * block of ten, so no level is won by every game.
+ * The bands. Easy stops at 0.98, so no level is won by every casual game. A depth of 1 means looking
+ * at what the next pick does; 3 means planning three picks. Very hard asks its depth-3 thinker for
+ * 0.85, not 0.9: deals that hard are rare, and the nearest one found was a depth-3 thinker at 0.85.
  */
-const BANDS: Record<Band, readonly [number, number]> = {
-  easy: [0.8, 1],
-  medium: [0.6, 0.8],
-  hard: [0.2, 0.6],
-  'very hard': [0.02, 0.2],
+export const BANDS: Record<Band, BandRule> = {
+  easy: { casual: [0.8, 0.981], depth: [1, 1], shallow: [] },
+  medium: { casual: [0.5, 0.8], depth: [1, 2], shallow: [] },
+  hard: { casual: [0, 0.5], depth: [2, 2], shallow: [0.6] },
+  'very hard': { casual: [0, 0.2], depth: [3, 3], shallow: [0.4, 0.6], wins: 0.85 },
 };
-
-/** The most a level's share may be, per block of ten: every block must be lost a little more often. */
-const CAPS: readonly number[] = [0.98, 0.96, 0.94, 0.92];
-
-export function capFor(level: number): number {
-  return CAPS[Math.min(Math.floor((level - 1) / 10), CAPS.length - 1)] as number;
-}
-
-export function bandRange(level: number, band: Band): readonly [number, number] {
-  const [lo, hi] = BANDS[band];
-  return [lo, Math.min(hi, capFor(level))];
-}
-
-/** How many games measure a level. */
-export const PLAYOUTS = 200;
-
-/** Who plays the games that measure a level. */
-export const GAUGE: Player = 'sensible';
-
-export function bandOf(share: number, level: number): Band | null {
-  for (const band of Object.keys(BANDS) as Band[]) {
-    const [lo, hi] = bandRange(level, band);
-    if (share >= lo && share < hi) return band;
-  }
-  return null;
-}
 
 /** The wave a level number sits on: easy, medium, hard, repeating, and very hard at every tenth. */
 export function bandFor(level: number): Band {
@@ -51,60 +56,64 @@ export function bandFor(level: number): Band {
   return (['easy', 'medium', 'hard'] as const)[((level % 10) - 1) % 3] as Band;
 }
 
+/** Whether a casual share is below, in or above a band. */
+export function casualFit(band: Band, share: number): 'harder' | 'in' | 'easier' {
+  const [lo, hi] = BANDS[band].casual;
+  return share < lo ? 'harder' : share >= hi ? 'easier' : 'in';
+}
+
+/**
+ * What the thinkers' shares, depth 1 first, say about a deal for a band: 'easier' when a shallower
+ * thinker wins too often, 'harder' when the deepest allowed thinker still loses, otherwise the depth
+ * needed: the first depth whose thinker wins.
+ */
+export function thinkerFit(band: Band, shares: readonly number[]): 'harder' | 'easier' | number {
+  const rule = BANDS[band];
+  for (let d = 1; d <= shares.length; d++) {
+    const share = shares[d - 1] as number;
+    const cap = rule.shallow[d - 1];
+    if (cap !== undefined && share > cap) return 'easier';
+    if (share >= (rule.wins ?? THINKER_WINS)) return d < rule.depth[0] ? 'easier' : d;
+  }
+  return 'harder';
+}
+
 export interface Structure {
-  /** The longer side of the picture, in squares. */
-  size: number;
-  colours: number;
   columns: number;
   buckets: number;
   potMin: number;
   potMax: number;
 }
 
-/** The structure of each block of ten levels; past the last block, the last one holds. */
-export const STRUCTURE: readonly Structure[] = [
-  { size: 20, colours: 4, columns: 3, buckets: 4, potMin: 10, potMax: 30 },
-  { size: 24, colours: 4, columns: 3, buckets: 4, potMin: 10, potMax: 30 },
-  { size: 24, colours: 5, columns: 3, buckets: 4, potMin: 10, potMax: 30 },
-];
-
-export function structureFor(level: number): Structure {
-  return STRUCTURE[Math.min(Math.floor((level - 1) / 10), STRUCTURE.length - 1)] as Structure;
-}
-
-/** Where a picture came from, kept with every level made from it. */
-export interface Source {
-  title: string;
-  /** The source image in the repo. */
-  file: string;
-  author: string;
-  licence: string;
-  licenceUrl: string;
-  /** The page the image was taken from. */
-  page: string;
-}
-
+/** A level, made from a scene. */
 export interface Level {
   number: number;
   band: Band;
   /** A digest of the picture and the deal: a saved game for another digest is not this level. */
   id: string;
-  source: Source;
-  /** The picture in pool letters; '.' is a clear square. */
+  /** The scene's title; the scene is SCENES[number − 1]. */
+  title: string;
+  /** The seed that placed the scene's scattered pixels. */
+  sceneSeed: number;
+  /** The picture in pool letters. */
   rows: string[];
-  /** 'clear', or the pool colour name the background was filled with. */
-  background: string;
   structure: Structure;
   /** The pots per column, the top one first; a pot's colour indexes the picture's palette. */
   columns: Pot[][];
-  /** The seed of the pots' making and perturbing, and how hard they were perturbed. */
-  seed: number;
-  knobs: Knobs;
-  playouts: number;
-  wins: number;
-  winShare: number;
   /** A game that wins this level: the column of each pick, in turn. */
   winningOrder: number[];
+  /** The seed of the pots' making and perturbing, how hard they were perturbed, and the knobs that makes. */
+  seed: number;
+  strength: number;
+  knobs: Knobs;
+  /** Casual games won, of CASUAL_GAMES. */
+  casualWins: number;
+  /** Each thinker's share on the visible pots, depth 1 first, up to the depth needed. */
+  thinkers: number[];
+  depth: number;
+  /** The share of a thinker of that depth that sees every pot. */
+  fullSight: number;
+  luck: number;
 }
 
 /** FNV-1a over the picture, the deal and the buckets, as 8 hex digits. */

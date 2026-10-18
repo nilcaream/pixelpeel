@@ -14,7 +14,8 @@ export const POOL: readonly Colour[] = [
   { name: 'red', char: 'r', hex: '#e53935' },
   { name: 'orange', char: 'o', hex: '#fb8c00' },
   { name: 'yellow', char: 'y', hex: '#fdd835' },
-  { name: 'green', char: 'g', hex: '#43a047' },
+  { name: 'green', char: 'g', hex: '#8bc34a' },
+  { name: 'dark green', char: 'd', hex: '#2e7d32' },
   { name: 'sky', char: 's', hex: '#4fc3f7' },
   { name: 'blue', char: 'b', hex: '#2f6fe0' },
   { name: 'purple', char: 'p', hex: '#a83cc8' },
@@ -35,7 +36,7 @@ export const PAGE = '#1c1c22';
 export const MIN_DELTA_E = 20;
 
 /** The most colours one level may use. */
-export const MAX_COLOURS = 8;
+export const MAX_COLOURS = 11;
 
 export function colourByChar(char: string): Colour {
   const c = POOL.find((p) => p.char === char);
