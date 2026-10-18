@@ -12,7 +12,8 @@ one pixel at a time, colour by colour. You choose the order.
   through the squares that are already empty, takes the most exposed pixel of its colour it can reach, and
   carries it back. A dot carrying a pixel has a dark border.
 - The number on a bucket counts the pixels it still has to collect. When it reaches 0 the bucket is free
-  again, while its last dots fly home into it.
+  again at once: its last dots fly to another bucket of the same colour if there is one, and into the
+  freed bucket if not.
 - When only one column has pots left there is nothing to decide, so the game picks them itself and runs
   three times faster.
 - A pixel that other pixels surround can't be reached. If every bucket holds a colour that no dot can reach,

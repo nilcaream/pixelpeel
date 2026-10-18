@@ -4,7 +4,7 @@ import { HOUSE, HOUSE_RULES } from './level.ts';
 import { parsePicture } from './picture.ts';
 import { seededRng } from './rng.ts';
 import { createBoard, pick, EMPTY, type Board } from './rules.ts';
-import { AT_BUCKET, createScene, freeSlot, idle, place, squareOf, tick, type Scene } from './scene.ts';
+import { AT_BUCKET, createScene, entryCell, freeSlot, idle, place, squareOf, tick, type Scene } from './scene.ts';
 
 const COLOURS = { A: '#ff0000', B: '#ffff00' };
 const A = 0;
@@ -50,6 +50,17 @@ describe('the scene', () => {
     expect([...new Set(shown)]).toEqual([3, 2, 1]);
     expect(freedWhileOut).toBe(true);
     expect(freeSlot(scene)).toBe(0);
+  });
+
+  it('sends the last dots of a bucket at zero to a bucket of the same colour, when there is one', () => {
+    let board = createBoard(parsePicture(['AAAA'], COLOURS), [[{ colour: A, count: 1 }, { colour: A, count: 3 }]], 2);
+    let scene = createScene(board);
+    [board, scene] = both(board, scene, 0);
+    [board, scene] = both(board, scene, 0);
+    while (scene.slots[0]) scene = tick(scene);
+    const handed = scene.dots.filter((d) => d.carrying && d.slot === 1 && d.route.length - d.pos > 2);
+    expect(handed.length).toBeGreaterThan(0);
+    for (const d of handed) expect(d.route.at(-2)).toBe(entryCell(scene, 1));
   });
 
   it('holds a dot in its bucket until the pixels on its way are lifted on screen', () => {
