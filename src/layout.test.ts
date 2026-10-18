@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOOTER_HEIGHT, HEADER_HEIGHT, measure, nameFontSize } from './layout.ts';
+import { FOOTER_HEIGHT, HEADER_HEIGHT, measure, nameFontSize, toCanvas } from './layout.ts';
 import levelsFile from './levels.json';
 
 const LEVELS = levelsFile as { title: string }[];
@@ -36,6 +36,37 @@ describe('the layout', () => {
         expect(size, `height ${height}`).toBeGreaterThanOrEqual(0);
       }
     }
+  });
+});
+
+describe('a tap on the canvas', () => {
+  // A top pot's centre at 412 × 915, as the game lays it out (level 21's shape).
+  const SIZE = { width: 412, height: 915 };
+  const POT = { x: 63.9, y: 592.7 };
+
+  it('lands on the point it was drawn at when the canvas fills the window', () => {
+    const p = toCanvas(POT.x, POT.y, { left: 0, top: 0, ...SIZE }, SIZE);
+    expect(p.x).toBeCloseTo(POT.x, 6);
+    expect(p.y).toBeCloseTo(POT.y, 6);
+  });
+
+  it('lands on the pot where it is seen when the canvas box is taller than the size it was drawn at', () => {
+    // A box 48 px taller (a navigation bar) shows the picture stretched: the pot is seen 31 px lower.
+    const box = { left: 0, top: 0, width: 412, height: 963 };
+    const seen = (POT.y * box.height) / SIZE.height;
+    expect(seen - POT.y).toBeGreaterThan(30);
+    const p = toCanvas(POT.x, seen, box, SIZE);
+    expect(p.y).toBeCloseTo(POT.y, 6);
+  });
+
+  it('lands on the pot where it is seen when the canvas box starts below the top of the window', () => {
+    const p = toCanvas(POT.x + 5, POT.y + 24, { left: 5, top: 24, ...SIZE }, SIZE);
+    expect(p.x).toBeCloseTo(POT.x, 6);
+    expect(p.y).toBeCloseTo(POT.y, 6);
+  });
+
+  it('is the top-left corner for a box of no size', () => {
+    expect(toCanvas(10, 10, { left: 0, top: 0, width: 0, height: 0 }, SIZE)).toEqual({ x: 0, y: 0 });
   });
 });
 

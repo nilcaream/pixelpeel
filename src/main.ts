@@ -8,7 +8,7 @@ import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { CONFIRM_MS, confirmTaps } from './confirm.ts';
 import { DEV_KEY, isDevHost } from './dev.ts';
 import { replay } from './generator.ts';
-import { measure, nameFontSize, type Layout } from './layout.ts';
+import { measure, nameFontSize, toCanvas, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
@@ -101,11 +101,17 @@ function goTo(n: number): void {
 }
 
 let layout: Layout;
+/** The size of the canvas's box on the page, which everything is laid out and drawn in. */
+let view = { width: 0, height: 0 };
 
 function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  // The canvas's own box, not the window's size: a phone can give the two different heights, and a
+  // picture laid out for one and shown in the other is stretched away from where the taps are tested.
+  const box = canvas.getBoundingClientRect();
+  const w = box.width;
+  const h = box.height;
+  view = { width: w, height: h };
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -115,7 +121,7 @@ function resize(): void {
   // The menu button stays over the picture's left edge (past the ring of one cell round it), at any width;
   // with no level open, over the left edge of the column the game would use.
   const edge = level ? layout.left + layout.cell : (w - Math.min(w * 0.92, 560)) / 2;
-  menuButton.style.left = `${Math.round(edge)}px`;
+  menuButton.style.left = `${Math.round(box.left + edge)}px`;
   levelName.style.fontSize = `${nameFontSize(w, levelName.textContent?.length ?? 0)}px`;
 }
 
@@ -225,7 +231,7 @@ function draw(frac: number): void {
 }
 
 function columnX(i: number): number {
-  return (window.innerWidth - layout.inner) / 2 + (i + 0.5) * layout.columnWidth;
+  return (view.width - layout.inner) / 2 + (i + 0.5) * layout.columnWidth;
 }
 
 function potY(row: number): number {
@@ -254,7 +260,8 @@ function play(column: number): void {
 
 canvas.addEventListener('pointerdown', (e) => {
   if (!level) return;
-  const column = columnAt(e.clientX, e.clientY);
+  const p = toCanvas(e.clientX, e.clientY, canvas.getBoundingClientRect(), view);
+  const column = columnAt(p.x, p.y);
   if (column >= 0) play(column);
 });
 
@@ -424,6 +431,8 @@ if (isDevHost(location.hostname)) {
 }
 
 window.addEventListener('resize', resize);
+// The canvas's box can change without the window's resize, as a phone's bars come and go.
+new ResizeObserver(() => resize()).observe(canvas);
 (document.getElementById('menu-version') as HTMLParagraphElement).textContent = `v${__APP_VERSION__}`;
 // The dev server keeps hot reload: only the production build is kept offline and updated.
 if (import.meta.env.PROD) reloadIfSafe = keepUpdated(() => pickedSinceOpen || !menu.hidden);
