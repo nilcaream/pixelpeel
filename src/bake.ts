@@ -92,12 +92,12 @@ export function judge(picture: Picture, columns: Pot[][], buckets: number, rule:
 /**
  * How far a deal that was ruled out on its thinkers misses the band: the most a shallow thinker is over its
  * cap, or how far the deepest allowed thinker falls short of winning. Null for a deal ruled out on the casual
- * share alone (its casual measure stopped early, so it cannot be ranked) or for a deal that fits.
+ * share alone (its casual measure stopped early, so it cannot be ranked), for one ruled out on luck (a level
+ * never has more luck than MAX_LUCK, closest or not), or for a deal that fits.
  */
 export function missBy(rule: BandRule, v: Verdict): { by: number; what: string } | null {
-  if (v.fits || v.thinkers.length === 0) return null;
+  if (v.fits || v.why === 'luck' || v.thinkers.length === 0) return null;
   const wins = rule.wins ?? THINKER_WINS;
-  if (v.why === 'luck') return { by: 0, what: 'more luck than allowed' };
   let worst: { by: number; what: string } | null = null;
   v.thinkers.forEach((share, i) => {
     const cap = rule.shallow[i];
