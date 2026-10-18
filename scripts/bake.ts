@@ -63,7 +63,7 @@ const started = Date.now();
 const levels = await bakeAll(SCENES.map((_, i) => i + 1));
 for (const l of levels)
   console.log(
-    `level ${String(l.number).padStart(2)} ${l.band.padEnd(9)} ${l.title.padEnd(17)} buckets ${l.structure.buckets} ` +
+    `level ${String(l.number).padStart(2)} ${l.band.padEnd(9)} ${l.title.padEnd(24)} buckets ${l.structure.buckets} ` +
       `strength ${l.strength} depth ${l.depth} casual ${(l.casualWins / 200).toFixed(3)} thinkers ${l.thinkers.join(' ')} ` +
       `full ${l.fullSight} luck ${l.luck} pots ${l.columns.flat().length}`,
   );

@@ -39,16 +39,30 @@ export interface BandRule {
 }
 
 /**
- * The bands. Easy stops at 0.98, so no level is won by every casual game. A depth of 1 means looking
- * at what the next pick does; 3 means planning three picks. Very hard asks its depth-3 thinker for
- * 0.85, not 0.9: deals that hard are rare, and the nearest one found was a depth-3 thinker at 0.85.
+ * The bands of each block of ten levels; a level past the last block takes the last. Each block is a
+ * step harder than the one before: less casual luck, and a deeper thinker needed.
+ *
+ * Block 1: easy stops at 0.98, so no level is won by every casual game. A depth of 1 means looking at
+ * what the next pick does; 3 means planning three picks. Very hard asks its depth-3 thinker for 0.85,
+ * not 0.9: deals that hard are rare, and the nearest one found was a depth-3 thinker at 0.85.
+ *
+ * Block 2: every casual range moves down by 0.15 to 0.3; medium needs a depth-2 thinker, hard may
+ * need depth 3, and the thinkers one step shallower are held lower.
  */
-export const BANDS: Record<Band, BandRule> = {
-  easy: { casual: [0.8, 0.981], depth: [1, 1], shallow: [] },
-  medium: { casual: [0.5, 0.8], depth: [1, 2], shallow: [] },
-  hard: { casual: [0, 0.5], depth: [2, 2], shallow: [0.6] },
-  'very hard': { casual: [0, 0.2], depth: [3, 3], shallow: [0.4, 0.6], wins: 0.85 },
-};
+export const BLOCKS: readonly Record<Band, BandRule>[] = [
+  {
+    easy: { casual: [0.8, 0.981], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.5, 0.8], depth: [1, 2], shallow: [] },
+    hard: { casual: [0, 0.5], depth: [2, 2], shallow: [0.6] },
+    'very hard': { casual: [0, 0.2], depth: [3, 3], shallow: [0.4, 0.6], wins: 0.85 },
+  },
+  {
+    easy: { casual: [0.65, 0.85], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.35, 0.65], depth: [2, 2], shallow: [0.7] },
+    hard: { casual: [0, 0.3], depth: [2, 3], shallow: [0.4] },
+    'very hard': { casual: [0, 0.1], depth: [4, 4], shallow: [0.2, 0.3, 0.5], wins: 0.85 },
+  },
+];
 
 /** The wave a level number sits on: easy, medium, hard, repeating, and very hard at every tenth. */
 export function bandFor(level: number): Band {
@@ -56,9 +70,15 @@ export function bandFor(level: number): Band {
   return (['easy', 'medium', 'hard'] as const)[((level % 10) - 1) % 3] as Band;
 }
 
+/** The rule of a level's band, in its block. */
+export function ruleFor(level: number): BandRule {
+  const block = BLOCKS[Math.min(Math.floor((level - 1) / 10), BLOCKS.length - 1)] as Record<Band, BandRule>;
+  return block[bandFor(level)];
+}
+
 /** Whether a casual share is below, in or above a band. */
-export function casualFit(band: Band, share: number): 'harder' | 'in' | 'easier' {
-  const [lo, hi] = BANDS[band].casual;
+export function casualFit(rule: BandRule, share: number): 'harder' | 'in' | 'easier' {
+  const [lo, hi] = rule.casual;
   return share < lo ? 'harder' : share >= hi ? 'easier' : 'in';
 }
 
@@ -67,8 +87,7 @@ export function casualFit(band: Band, share: number): 'harder' | 'in' | 'easier'
  * thinker wins too often, 'harder' when the deepest allowed thinker still loses, otherwise the depth
  * needed: the first depth whose thinker wins.
  */
-export function thinkerFit(band: Band, shares: readonly number[]): 'harder' | 'easier' | number {
-  const rule = BANDS[band];
+export function thinkerFit(rule: BandRule, shares: readonly number[]): 'harder' | 'easier' | number {
   for (let d = 1; d <= shares.length; d++) {
     const share = shares[d - 1] as number;
     const cap = rule.shallow[d - 1];

@@ -34,24 +34,26 @@ progress (tap twice), and links to this repository.
   different colours (`src/palette.ts`). A scene fills its whole rectangle, gives each area two tones
   dithered together, and nests small things in big ones. At least three colours touch its edge, so no
   single colour is the only way in.
-- Levels come in waves: easy, medium, hard, with a very hard one every tenth level.
+- Levels come in waves: easy, medium, hard, with a very hard one every tenth level. Each block of ten
+  levels is a step harder than the one before.
 - Difficulty is measured on skill, not luck (`src/levels.ts`, `src/thinker.ts`). A casual player picks at
   random among the columns whose top pot can reach a pixel right now. A thinker looks a few picks ahead on
   the pots the page shows. A level's depth is how far ahead a thinker must look to win (90% of its games,
   85% on a very hard level), and its luck is what a thinker gains by seeing the hidden pots too:
 
-  | band | casual players win | depth |
-  |---|---|---|
-  | easy | 80–98% | 1 |
-  | medium | 50–80% | 1–2 |
-  | hard | under 50% | 2, and a depth-1 thinker wins at most 60% |
-  | very hard | under 20% | 3, and depth 1 and 2 win at most 40% and 60% |
+  | band | levels 1–10: casual players win | depth | levels 11–20: casual players win | depth |
+  |---|---|---|---|---|
+  | easy | 80–98% | 1 | 65–85% | 1 |
+  | medium | 50–80% | 1–2 | 35–65% | 2, and a depth-1 thinker wins at most 70% |
+  | hard | under 50% | 2, and depth 1 wins at most 60% | under 30% | 2–3, and depth 1 wins at most 40% |
+  | very hard | under 20% | 3, and depth 1 and 2 win at most 40% and 60% | under 10% | 4, and depth 1, 2 and 3 win at most 20%, 30% and 50% |
 
   Every level has a luck of at most 5%, and a solver proves it can be won.
 - `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, one worker per level). For each level it
   deals pots that are known to win and perturbs them (pots surface early, the order is turned round, pots
   merge). It measures the deal, the cheapest measure first, and turns the knobs in this order: the strength
-  of the perturbing, then fewer buckets (5, 4, 3), then the scene's next seed. Each level keeps its seeds,
+  of the perturbing, then fewer buckets (5, 4, 3), then the scene's next seed. When that search finds no deal,
+  a grid tries every bucket count and strength, a few deals each. Each level keeps its seeds,
   strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` bakes
   again and fails if the committed file differs.
 - Dev mode is for trying levels. The menu offers it only when the page is opened at exactly `127.0.0.1`

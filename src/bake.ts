@@ -9,7 +9,6 @@
 
 import { makePots, measure, perturb, type Knobs } from './generator.ts';
 import {
-  BANDS,
   CASUAL_GAMES,
   MAX_LUCK,
   THINKER_GAMES,
@@ -17,8 +16,9 @@ import {
   bandFor,
   casualFit,
   levelId,
+  ruleFor,
   thinkerFit,
-  type Band,
+  type BandRule,
   type Level,
   type Structure,
 } from './levels.ts';
@@ -66,17 +66,17 @@ export type Verdict =
   | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[] }
   | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; winningOrder: number[] };
 
-/** Measures one deal for a band, cheapest measure first, and stops at the first that rules it out. */
-export function judge(picture: Picture, columns: Pot[][], buckets: number, band: Band): Verdict {
-  const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', BANDS[band].casual);
+/** Measures one deal for a band's rule, cheapest measure first, and stops at the first that rules it out. */
+export function judge(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule): Verdict {
+  const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', rule.casual);
   const casualWins = casual.wins;
-  const fit = casual.outside ?? casualFit(band, casual.wins / CASUAL_GAMES);
+  const fit = casual.outside ?? casualFit(rule, casual.wins / CASUAL_GAMES);
   if (fit !== 'in') return { fits: false, why: fit, casualWins, thinkers: [] };
   const thinkers: number[] = [];
   let depth: ReturnType<typeof thinkerFit> = 'harder';
-  for (let d = 1; d <= BANDS[band].depth[1]; d++) {
+  for (let d = 1; d <= rule.depth[1]; d++) {
     thinkers.push(thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: VISIBLE, depth: d }));
-    depth = thinkerFit(band, thinkers);
+    depth = thinkerFit(rule, thinkers);
     if (depth !== 'harder') break;
   }
   if (typeof depth !== 'number') return { fits: false, why: depth, casualWins, thinkers };
@@ -96,54 +96,77 @@ export function dealFor(picture: Picture, structure: Structure, seed: number, st
   return { columns: perturb(pots, structure.columns, knobs, rng), knobs };
 }
 
+/** The grid tried when the search finds nothing: strengths from GRID_STRENGTHS[0] up by GRID_STEP, GRID_DEALS deals each. */
+const GRID_STRENGTHS = [0.5, 2] as const;
+const GRID_STEP = 0.25;
+const GRID_DEALS = 4;
+
 export function bakeLevel(number: number, log: (line: string) => void = () => {}): Level {
   const scene = SCENES[number - 1];
   if (!scene) throw new Error(`level ${number} has no scene`);
   const band = bandFor(number);
-  for (let sceneSeed = 1; sceneSeed <= SCENE_SEEDS; sceneSeed++) {
+  const rule = ruleFor(number);
+  /** Deals and judges one deal; the level when it fits. */
+  const tryDeal = (sceneSeed: number, buckets: number, seed: number, strength: number) => {
     const rows = sceneRows(scene, sceneSeed);
     const picture = poolPicture(rows);
+    const structure: Structure = { ...BASE, buckets };
+    const { columns, knobs } = dealFor(picture, structure, seed, strength);
+    const v = judge(picture, columns, buckets, rule);
+    log(
+      `level ${number} scene seed ${sceneSeed} buckets ${buckets} strength ${strength}: ` +
+        `${v.fits ? 'fits' : v.why}, casual ${v.casualWins}/${CASUAL_GAMES}, thinkers ${v.thinkers.join(' ')}`,
+    );
+    const level: Level | null = v.fits
+      ? {
+          number,
+          band,
+          id: levelId(rows, columns, buckets),
+          title: scene.title,
+          sceneSeed,
+          rows,
+          structure,
+          columns,
+          seed,
+          strength,
+          knobs,
+          casualWins: v.casualWins,
+          thinkers: v.thinkers,
+          depth: v.depth,
+          fullSight: v.fullSight,
+          luck: v.luck,
+          winningOrder: v.winningOrder,
+        }
+      : null;
+    return { v, level };
+  };
+  for (let sceneSeed = 1; sceneSeed <= SCENE_SEEDS; sceneSeed++) {
     for (const buckets of BUCKETS) {
-      const structure: Structure = { ...BASE, buckets };
       let strength = START_STRENGTH;
       let step = STRENGTH_STEP;
       let last: 'easier' | 'harder' | 'luck' = 'easier';
       for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-        const seed = sceneSeed * 1000 + buckets * 100 + attempt;
-        const { columns, knobs } = dealFor(picture, structure, seed, strength);
-        const v = judge(picture, columns, buckets, band);
-        log(
-          `level ${number} scene seed ${sceneSeed} buckets ${buckets} strength ${strength}: ` +
-            `${v.fits ? 'fits' : v.why}, casual ${v.casualWins}/${CASUAL_GAMES}, thinkers ${v.thinkers.join(' ')}`,
-        );
-        if (v.fits)
-          return {
-            number,
-            band,
-            id: levelId(rows, columns, buckets),
-            title: scene.title,
-            sceneSeed,
-            rows,
-            structure,
-            columns,
-            seed,
-            strength,
-            knobs,
-            casualWins: v.casualWins,
-            thinkers: v.thinkers,
-            depth: v.depth,
-            fullSight: v.fullSight,
-            luck: v.luck,
-            winningOrder: v.winningOrder,
-          };
+        const { v, level } = tryDeal(sceneSeed, buckets, sceneSeed * 1000 + buckets * 100 + attempt, strength);
+        if (level) return level;
+        if (v.fits) continue;
         if (v.why !== 'luck' && last !== 'luck' && v.why !== last && attempt > 1) step = Math.max(MIN_STEP, step / 2);
         last = v.why;
         if (v.why === 'easier') strength = round2(Math.min(MAX_STRENGTH, strength + step));
         if (v.why === 'harder') strength = round2(Math.max(0, strength - step));
       }
-      // Fewer buckets only make a deal harder: no use when this many were already too hard.
+      // Fewer buckets mostly make a deal harder: the search moves on when this many were already too hard.
       if (last === 'harder') break;
     }
   }
+  // The search follows one path and can step past a narrow band, where the verdict jumps between deals of
+  // nearly the same strength. The grid walks every bucket count and strength, a few deals each.
+  for (let sceneSeed = 1; sceneSeed <= SCENE_SEEDS; sceneSeed++)
+    for (const buckets of BUCKETS)
+      for (let strength: number = GRID_STRENGTHS[0]; strength <= GRID_STRENGTHS[1]; strength = round2(strength + GRID_STEP))
+        for (let deal = 1; deal <= GRID_DEALS; deal++) {
+          const seed = sceneSeed * 1000 + buckets * 100 + 10 * Math.round(strength / GRID_STEP) + deal;
+          const { level } = tryDeal(sceneSeed, buckets, seed, strength);
+          if (level) return level;
+        }
   throw new Error(`level ${number} (${band}, ${scene.title}): no deal fitted the band`);
 }
