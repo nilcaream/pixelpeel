@@ -12,6 +12,7 @@ import { measure, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
+import { FINALE_TEXT, tapOpensMenu } from './finale.ts';
 import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
@@ -57,12 +58,13 @@ let scene: Scene;
 function open(): void {
   level = LEVELS[progress.level - 1] ?? null;
   end.hidden = true;
+  levelNumber.classList.toggle('finale', !level);
   if (!level) {
     levelNumber.textContent = 'All levels peeled';
     levelName.textContent = '';
     levelBand.textContent = '';
     resize();
-    endText.textContent = `All ${LEVELS.length} levels peeled!`;
+    endText.textContent = FINALE_TEXT;
     end.dataset.state = 'done';
     endButton.hidden = true;
     end.hidden = false;
@@ -316,6 +318,17 @@ menu.addEventListener('click', (e) => {
 });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') showMenu(false);
+});
+// After the last level there is nothing to play: a tap anywhere opens the menu.
+window.addEventListener('click', (e) => {
+  const target = e.target as Node;
+  const tap = {
+    finale: !end.hidden && end.dataset.state === 'done',
+    menuOpen: !menu.hidden,
+    // The end button too: the tap on Next that leads here from the last level must not open the menu.
+    handled: [menu, menuButton, endButton].some((el) => el.contains(target)),
+  };
+  if (tapOpensMenu(tap)) showMenu(true);
 });
 // Clearing asks first, on the button itself: the first tap turns it red and asks, a second tap within a
 // second clears, and with no second tap it goes back to how it was.
