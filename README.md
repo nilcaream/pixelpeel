@@ -26,7 +26,8 @@ way. Your level and every pick you make are kept in the browser, so a reload goe
 left off.
 
 The menu (☰, over the picture's top left corner) plays any level you have peeled again, clears your
-progress (tap twice), and links to this repository.
+progress (tap twice), and links to this repository. The game's name is marked `translate="no"` where it
+is spelled in coloured letters, so a browser that translates the page leaves it in one piece.
 
 ## Levels
 
