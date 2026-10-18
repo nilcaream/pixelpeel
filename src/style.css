@@ -85,6 +85,11 @@ body {
   margin-bottom: 4px;
 }
 
+/* "All levels peeled" would be 17 × 16 = 272 px and cut short at 360: 17 × 12 = 204 px. */
+#level-number.finale {
+  font-size: 12px;
+}
+
 /* The longest names, "Bee in the meadow" and "Fruit on a branch", are 17 × 12 = 204 px. */
 #level-name {
   font-size: 12px;
@@ -183,6 +188,8 @@ body {
   padding: 48px 16px 16px;
   background: rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
+  /* Above the end of a level, which comes later in the page. */
+  z-index: 2;
 }
 
 #menu[hidden] {
@@ -385,9 +392,16 @@ body {
   text-shadow: 0 4px 0 #0c0c10;
 }
 
-/* "All 10 levels peeled!" wraps after "levels": 13 × 18 = 234 px. */
+/*
+ * "Congratulations!" is one word, so it cannot wrap: 16 × 16 = 256 px, inside 20 px each side makes a
+ * 296 px panel at every width, within the 312 px the panel may take at 360.
+ */
+#end[data-state='done'] {
+  padding: 18px 20px 22px;
+}
+
 #end[data-state='done'] p {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.6;
   margin: 0;
 }
