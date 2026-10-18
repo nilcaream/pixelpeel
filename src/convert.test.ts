@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { decodePng, readPng } from '../scripts/png.ts';
-import { assignColours, backgroundColour, cleanStrays, convert, fillClear, type Image } from './convert.ts';
+import { assignColours, backgroundColour, cleanStrays, convert, fillClear, outline, type Image } from './convert.ts';
 import { POOL, deltaE, hexToLab } from './palette.ts';
 
 /** An image from rows of letters, each letter one colour; '.' is transparent. */
@@ -78,6 +78,17 @@ describe('convert', () => {
     const bg = backgroundColour(rows);
     expect(['r', 'g', '.']).not.toContain(bg);
     expect(fillClear(rows, bg)).toEqual([`${bg}r${bg}`, 'rgr']);
+  });
+
+  it('rings a picture in one square of a colour, beside it but not across a corner, and inside its holes', () => {
+    expect(outline(['r..', '...', 'g.g'], 'o')).toEqual([
+      '.o...',
+      'oro..',
+      '.o.o.',
+      'ogogo',
+      '.o.o.',
+    ]);
+    expect(outline(['rrr', 'r.r', 'rrr'], 'o')).toEqual(['.ooo.', 'orrro', 'ororo', 'orrro', '.ooo.']);
   });
 });
 

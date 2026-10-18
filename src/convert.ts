@@ -183,6 +183,21 @@ export function backgroundColour(rows: string[]): string {
   return best;
 }
 
+/**
+ * The picture framed one square larger on every side, with every clear square that touches it (above,
+ * below or beside) drawn in one colour: a ring that has to be peeled before the picture opens up.
+ */
+export function outline(rows: string[], char: string): string[] {
+  const w = (rows[0] as string).length;
+  const grid = [CLEAR.repeat(w + 2), ...rows.map((r) => CLEAR + r + CLEAR), CLEAR.repeat(w + 2)];
+  const filled = (x: number, y: number) => (grid[y]?.[x] ?? CLEAR) !== CLEAR;
+  return grid.map((r, y) =>
+    r.replace(/./g, (c, x: number) =>
+      c === CLEAR && (filled(x, y - 1) || filled(x - 1, y) || filled(x + 1, y) || filled(x, y + 1)) ? char : c,
+    ),
+  );
+}
+
 /** The picture with its clear squares filled in one colour, for levels whose background is peeled too. */
 export function fillClear(rows: string[], char: string): string[] {
   return rows.map((r) => r.split(CLEAR).join(char));
