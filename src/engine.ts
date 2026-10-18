@@ -163,6 +163,85 @@ export function findTarget(s: State, bucket: number, colour: number): Target | n
   return { square: best.square, path: path.reverse() };
 }
 
+/** Steps from a bucket's entry cell to every frame cell a dot can walk on (the ring and the empty squares), −1 elsewhere. */
+function stepsHome(s: State, bucket: number): Int32Array {
+  const fw = s.width + 2;
+  const fh = s.height + 2;
+  const dist = new Int32Array(fw * fh).fill(-1);
+  const queue = new Int32Array(fw * fh);
+  const start = entryCell(s, bucket);
+  dist[start] = 0;
+  let head = 0;
+  let tail = 0;
+  queue[tail++] = start;
+  while (head < tail) {
+    const cell = queue[head++] as number;
+    const fx = cell % fw;
+    const fy = (cell - fx) / fw;
+    for (const [dx, dy] of STEPS) {
+      const nx = fx + dx;
+      const ny = fy + dy;
+      if (nx < 0 || ny < 0 || nx >= fw || ny >= fh) continue;
+      const next = ny * fw + nx;
+      if (dist[next] !== -1) continue;
+      const square = squareOf(s, next);
+      if (square >= 0 && s.cells[square] !== EMPTY) continue;
+      dist[next] = (dist[cell] as number) + 1;
+      queue[tail++] = next;
+    }
+  }
+  return dist;
+}
+
+/**
+ * Plans the rest of a carrying dot's route as the shortest walk to its bucket on the picture as it is
+ * now: once when it lifts its pixel, and again if its bucket hands it over.
+ */
+function planHome(s: State, dot: Dot, fields: Map<number, Int32Array>): void {
+  let field = fields.get(dot.bucket);
+  if (!field) {
+    field = stepsHome(s, dot.bucket);
+    fields.set(dot.bucket, field);
+  }
+  const fw = s.width + 2;
+  let cell = dot.route[dot.pos] as number;
+  if ((field[cell] ?? -1) < 0) return;
+  const rest: number[] = [];
+  while ((field[cell] as number) > 0) {
+    const fx = cell % fw;
+    const want = (field[cell] as number) - 1;
+    for (const [dx, dy] of STEPS) {
+      const nx = fx + dx;
+      if (nx < 0 || nx >= fw) continue;
+      const next = cell + dy * fw + dx;
+      if (field[next] === want) {
+        cell = next;
+        break;
+      }
+    }
+    rest.push(cell);
+  }
+  dot.route = [...dot.route.slice(0, dot.pos + 1), ...rest, AT_BUCKET];
+}
+
+/**
+ * A bucket whose pixels are all lifted, with only dots coming home, gives its place up when another bucket
+ * holds its colour: its dots go home to that bucket instead, and the place is free at once.
+ */
+function handOver(s: State, homing: Set<Dot>): void {
+  s.buckets.forEach((b, i) => {
+    if (!b || b.pickedUp < b.count) return;
+    const heir = s.buckets.findIndex((o, j) => j !== i && o !== null && o.colour === b.colour);
+    if (heir < 0) return;
+    for (const dot of s.dots) {
+      if (dot.bucket !== i) continue;
+      dot.bucket = heir;
+      homing.add(dot);
+    }
+    s.buckets[i] = null;
+  });
+}
+
 /** The player's move: the top pot of the column goes into the leftmost free bucket. */
 export function pick(s: State, column: number): State {
   const free = s.buckets.indexOf(null);
@@ -178,6 +257,7 @@ export function tick(s: State): State {
   const next = clone(s);
   next.ticks += 1;
   const moving: Dot[] = [];
+  const homing = new Set<Dot>();
   for (const dot of next.dots) {
     dot.pos += 1;
     if (dot.pos === dot.turn) {
@@ -186,10 +266,14 @@ export function tick(s: State): State {
       next.claimed[square] = 0;
       dot.carrying = true;
       (next.buckets[dot.bucket] as Bucket).pickedUp += 1;
+      homing.add(dot);
     }
     if (dot.pos < dot.route.length - 1) moving.push(dot);
   }
   next.dots = moving;
+  handOver(next, homing);
+  const fields = new Map<number, Int32Array>();
+  for (const dot of homing) planHome(next, dot, fields);
   next.buckets = next.buckets.map((b, i) =>
     b && b.pickedUp === b.count && !moving.some((d) => d.bucket === i) ? null : b,
   );
