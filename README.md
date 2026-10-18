@@ -76,4 +76,4 @@ repository.
 ## Licence
 
 MIT, see `LICENSE`. The font, Pixelify Sans, is under the SIL Open Font License 1.1, see
-`src/fonts/OFL.txt`.
+`public/fonts/OFL.txt`, which is published beside the font.
