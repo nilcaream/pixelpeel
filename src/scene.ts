@@ -5,7 +5,8 @@
 // Dots walk on the frame grid: the picture plus a ring one cell wide around it. A bucket sends a dot for
 // each pixel its pot lifted, in the order the rules lifted them, as soon as the way to it is clear on
 // screen; the pixel disappears when the dot gets there, and the dot takes the shortest way home from
-// it. A bucket is free again the moment its last pixel is lifted; its last dots still fly into it.
+// it. A bucket is free again the moment its last pixel is lifted; its last dots fly on to a bucket of
+// the same colour if there is one, and into the freed bucket if not.
 
 import { EMPTY, type Board, type Held, type Lift } from './rules.ts';
 
@@ -184,11 +185,18 @@ function wayTo(s: Scene, bucket: number, square: number): number[] | null {
   return [...descend(s, dist, best).reverse(), best, pixel];
 }
 
+/** Replaces the rest of a carrying dot's route with the shortest way from where it is to its bucket. */
+function planHome(s: Scene, dot: Dot): void {
+  const home = descend(s, walk(s, entryCell(s, dot.slot)), dot.route[dot.pos] as number);
+  dot.route = [...dot.route.slice(0, dot.pos + 1), ...home, AT_BUCKET];
+}
+
 /** One step of time: every dot moves one cell, pixels are lifted on screen, and new dots set off. */
 export function tick(s: Scene): Scene {
   const next = clone(s);
   next.ticks += 1;
   const moving: Dot[] = [];
+  const freed: number[] = [];
   for (const dot of next.dots) {
     dot.pos += 1;
     if (dot.pos === dot.turn) {
@@ -197,14 +205,28 @@ export function tick(s: Scene): Scene {
       dot.carrying = true;
       const slot = next.slots[dot.slot] as Slot;
       slot.lifted += 1;
-      if (slot.lifted === slot.count) next.slots[dot.slot] = null;
+      if (slot.lifted === slot.count) {
+        next.slots[dot.slot] = null;
+        freed.push(dot.slot);
+      }
       // The way home is planned once, from the pixel, over the picture as it is now.
-      const home = descend(next, walk(next, entryCell(next, dot.slot)), pixel);
-      dot.route = [...dot.route.slice(0, dot.turn + 1), ...home, AT_BUCKET];
+      planHome(next, dot);
     }
     if (dot.pos < dot.route.length - 1) moving.push(dot);
   }
   next.dots = moving;
+  // A bucket freed at zero hands its dots still on their way to a bucket of the same colour, if one is
+  // there; otherwise they fly into the freed bucket.
+  for (const i of freed) {
+    const colour = moving.find((d) => d.slot === i)?.colour;
+    const heir = next.slots.findIndex((b) => b !== null && b.colour === colour);
+    if (heir < 0) continue;
+    for (const dot of moving) {
+      if (dot.slot !== i) continue;
+      dot.slot = heir;
+      planHome(next, dot);
+    }
+  }
   next.slots.forEach((b, i) => {
     if (!b) return;
     b.sinceLaunch += 1;
