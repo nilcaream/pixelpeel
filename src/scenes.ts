@@ -163,9 +163,124 @@ export class Canvas {
     this.put(x, y, centre);
   }
 
+  // The helpers below draw without the two-by-two checker and without ruler-straight edges: a boundary
+  // between two colours wanders with smooth noise, and where two tones meet, single squares of one stray
+  // into the other at fixed but irregular places. The noise is fixed by a salt, never by the seed.
+
+  /** Smooth value noise in [0, 1) with features about `scale` squares wide. */
+  noise(x: number, y: number, scale: number, salt = 0): number {
+    const fx = x / scale;
+    const fy = y / scale;
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const sx = smooth(fx - x0);
+    const sy = smooth(fy - y0);
+    const top = hash(x0, y0, salt) + (hash(x0 + 1, y0, salt) - hash(x0, y0, salt)) * sx;
+    const bottom = hash(x0, y0 + 1, salt) + (hash(x0 + 1, y0 + 1, salt) - hash(x0, y0 + 1, salt)) * sx;
+    return top + (bottom - top) * sy;
+  }
+
+  /**
+   * The small-scale wander of an edge, in rows: a second, finer octave of noise and a stray of a square
+   * either way, so that no edge runs ruler-straight for long even where the large noise is flat.
+   */
+  wobble(x: number, y: number, salt = 0): number {
+    return (this.noise(x, y, 2.5, salt + 5) - 0.5) * 1.6 + (hash(x, y, salt + 7) - 0.5) * 1.6;
+  }
+
+  /** Every square, the picture's own and the pad's: `paint` returns its new colour, or nothing to leave it. */
+  fill(paint: (x: number, y: number, now: string) => string | undefined): void {
+    for (let y = -this.pad; y < this.height + this.pad; y++)
+      for (let x = 0; x < this.width; x++) {
+        const c = paint(x, y, this.at(x, y) as string);
+        if (c) this.put(x, y, c);
+      }
+  }
+
+  /**
+   * Rows from y0 to y1 in bands of `colours`, top to bottom, of equal height. Each band's lower edge
+   * wanders up to `wave` rows up or down with the noise, and squares within a row of an edge stray across it.
+   */
+  bands(y0: number, y1: number, colours: string, salt = 0, wave = 1.5, scale = 7, on?: string): void {
+    const n = colours.length;
+    const h = (y1 - y0 + 1) / n;
+    this.fill((x, y, now) => {
+      if (y < y0 || y > y1 || (on && !on.includes(now))) return undefined;
+      const r = y - y0 + 0.5 + (this.noise(x, y, scale, salt) - 0.5) * 2 * wave + this.wobble(x, y, salt);
+      return colours[Math.min(n - 1, Math.max(0, Math.floor(r / h)))];
+    });
+  }
+
+  /**
+   * An ellipse whose rim wanders by `rough` with the noise; lit from the upper left, its far side in
+   * `shade` and its near side in `light`, each in a solid patch with a wandering edge.
+   */
+  blob(cx: number, cy: number, rx: number, ry: number, c: string, shade?: string, light?: string, salt = 0, rough = 0.25): void {
+    this.fill((x, y) => {
+      const u = (x - cx) / rx;
+      const v = (y - cy) / ry;
+      const n = this.noise(x, y, 3, salt) - 0.5;
+      // A rough rim also wanders by about a square at any size, so a long flat side never runs straight.
+      const fine = rough > 0 ? ((this.noise(x, y, 1.7, salt + 9) - 0.5) * 2.4) / Math.min(rx, ry) : 0;
+      if (u * u + v * v > 1 + rough * 2 * n + fine) return undefined;
+      const t = 0.6 * u + 0.8 * v + 0.5 * n + (hash(x, y, salt + 3) - 0.5) * 0.25;
+      if (shade && t > 0.35) return shade;
+      if (light && t < -0.5) return light;
+      return c;
+    });
+  }
+
+  /** A curved stroke from (x0, y0) bending towards (bx, by) and ending at (x1, y1), `w0` squares wide at its start and `w1` at its end. */
+  curve(x0: number, y0: number, bx: number, by: number, x1: number, y1: number, c: string, w0 = 1, w1 = w0): void {
+    const steps = 4 * (Math.abs(x1 - x0) + Math.abs(y1 - y0) + Math.abs(bx - x0) + Math.abs(by - y0) + 2);
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const px = (1 - t) ** 2 * x0 + 2 * (1 - t) * t * bx + t * t * x1;
+      const py = (1 - t) ** 2 * y0 + 2 * (1 - t) * t * by + t * t * y1;
+      const r = (w0 + (w1 - w0) * t) / 2;
+      if (r <= 0.5) {
+        this.put(Math.round(px), Math.round(py), c);
+        continue;
+      }
+      for (let y = Math.floor(py - r); y <= Math.ceil(py + r); y++)
+        for (let x = Math.floor(px - r); x <= Math.ceil(px + r); x++) if ((x - px) ** 2 + (y - py) ** 2 <= r * r) this.put(x, y, c);
+    }
+  }
+
+  /** A filled polygon through the given corners, [x, y, x, y, …]; a square is in when its centre is. */
+  poly(corners: readonly number[], c: string): void {
+    const n = corners.length / 2;
+    this.fill((x, y) => {
+      let inside = false;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const xi = corners[2 * i] as number;
+        const yi = corners[2 * i + 1] as number;
+        const xj = corners[2 * j] as number;
+        const yj = corners[2 * j + 1] as number;
+        if (yi > y + 0.5 !== yj > y + 0.5 && x + 0.5 < ((xj - xi) * (y + 0.5 - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside ? c : undefined;
+    });
+  }
+
+  /** Single squares of `c` on a colour in `on`, at fixed irregular places, about `share` of them. */
+  speckle(c: string, on: string, share: number, salt = 0): void {
+    this.fill((x, y, now) => (on.includes(now) && hash(x, y, salt + 11) < share ? c : undefined));
+  }
+
   rows(): string[] {
     return this.g.map((r) => r.join(''));
   }
+}
+
+const smooth = (t: number): number => t * t * (3 - 2 * t);
+
+/** Fixed white noise in [0, 1) for a square: the same square and salt give the same number on every draw. */
+export function hash(x: number, y: number, salt = 0): number {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(salt, 2246822519)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
 }
 
 export interface Scene {
