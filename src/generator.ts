@@ -170,7 +170,7 @@ export function measure(
     if (band) {
       const left = playouts - seed;
       if ((wins + left) / playouts < band[0]) return { playouts, played: seed, wins, winning, outside: 'harder' };
-      if (wins / playouts >= band[1] && band[1] < 1) return { playouts, played: seed, wins, winning, outside: 'easier' };
+      if (wins / playouts >= band[1]) return { playouts, played: seed, wins, winning, outside: 'easier' };
     }
   }
   return { playouts, played: playouts, wins, winning };

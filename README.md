@@ -28,9 +28,13 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
 - Levels come in waves: easy, medium, hard, with a very hard one every tenth level. Every ten levels the
   structure grows: first the picture's size (20 → 24 squares), then its colours (4 → 5). Levels 21–30
   bring the pictures of levels 1–10 back, larger and with more colours.
-- Difficulty is measured: each level is played by 200 random players, who pick a random column whenever a
-  bucket is free. The share that wins sets the band: easy ≥ 90%, medium 65–90%, hard 35–65%, very hard
-  10–35%.
+- Difficulty is measured: each level is played by 200 sensible players, who pick at random among the
+  columns whose top pot can reach a pixel right now, and among all columns only when none can. The share
+  that wins sets the band: easy 80% up to the block's cap, medium 60–80%, hard 20–60%, very hard 2–20%.
+  No level is won by every player: the cap is 98% for levels 1–10, 96% for 11–20, 94% for 21–30 and 92%
+  after that.
+- Each picture is ringed by one square of a colour of its own, which has to be peeled before the picture
+  opens up.
 - `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, a few minutes on all cores). For each
   level it converts the source picture into the colour pool (`src/convert.ts`, `src/palette.ts`), deals pots
   that are known to win, and perturbs them (pots surface early, the order is turned round, pots merge)

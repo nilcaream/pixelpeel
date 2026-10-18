@@ -78,10 +78,10 @@ describe('players and measure', () => {
 
   it('gives up early only where the full measure is outside the band too', () => {
     const full = measure(HOUSE, shuffled, 4, 60, 'random');
-    for (const band of [[0.1, 0.35], [0.35, 0.65], [0.65, 0.9], [0.9, 1]] as const) {
+    for (const band of [[0.02, 0.2], [0.2, 0.6], [0.6, 0.8], [0.8, 0.98]] as const) {
       const quick = measure(HOUSE, shuffled, 4, 60, 'random', band);
       const share = full.wins / 60;
-      const inside = share >= band[0] && (share < band[1] || band[1] === 1);
+      const inside = share >= band[0] && share < band[1];
       expect(quick.outside === undefined, `band ${band}`).toBe(inside);
       if (inside) expect(quick.wins).toBe(full.wins);
     }

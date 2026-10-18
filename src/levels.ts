@@ -1,30 +1,47 @@
 // What a level is, and the rules that place levels on the difficulty waves. Levels go in waves of
 // easy, medium, hard, with a very hard one at every tenth; every ten levels, one part of the structure
 // grows (the picture's size, then its colours, then the columns), so a level is harder than the level
-// with the same band ten earlier. Difficulty is measured: the share of random pick orders that win.
+// with the same band ten earlier. Difficulty is measured: the share of sensible pick orders that win.
 
 import type { Knobs, Player } from './generator.ts';
 import type { Pot } from './rules.ts';
 
 export type Band = 'easy' | 'medium' | 'hard' | 'very hard';
 
-/** The share of random games won, from (inclusive) and to (exclusive; easy includes 1). */
-export const BANDS: Record<Band, readonly [number, number]> = {
-  easy: [0.9, 1],
-  medium: [0.65, 0.9],
-  hard: [0.35, 0.65],
-  'very hard': [0.1, 0.35],
+/**
+ * The share of games won, from (inclusive) and to (exclusive). Easy reaches up to the cap of its
+ * block of ten, so no level is won by every game.
+ */
+const BANDS: Record<Band, readonly [number, number]> = {
+  easy: [0.8, 1],
+  medium: [0.6, 0.8],
+  hard: [0.2, 0.6],
+  'very hard': [0.02, 0.2],
 };
+
+/** The most a level's share may be, per block of ten: every block must be lost a little more often. */
+const CAPS: readonly number[] = [0.98, 0.96, 0.94, 0.92];
+
+export function capFor(level: number): number {
+  return CAPS[Math.min(Math.floor((level - 1) / 10), CAPS.length - 1)] as number;
+}
+
+export function bandRange(level: number, band: Band): readonly [number, number] {
+  const [lo, hi] = BANDS[band];
+  return [lo, Math.min(hi, capFor(level))];
+}
 
 /** How many games measure a level. */
 export const PLAYOUTS = 200;
 
 /** Who plays the games that measure a level. */
-export const GAUGE: Player = 'random';
+export const GAUGE: Player = 'sensible';
 
-export function bandOf(share: number): Band | null {
-  for (const [band, [lo, hi]] of Object.entries(BANDS) as [Band, readonly [number, number]][])
-    if (share >= lo && (share < hi || (hi === 1 && share === 1))) return band;
+export function bandOf(share: number, level: number): Band | null {
+  for (const band of Object.keys(BANDS) as Band[]) {
+    const [lo, hi] = bandRange(level, band);
+    if (share >= lo && share < hi) return band;
+  }
   return null;
 }
 
