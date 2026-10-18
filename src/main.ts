@@ -10,7 +10,7 @@ import type { Band, Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
 import { browserStore, loadProgress, saveProgress, type Progress } from './progress.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
-import { AT_BUCKET, createScene, entryCell, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
+import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
 import './style.css';
 
 /** How many cells a dot moves per second; a constant to tune. */
@@ -130,9 +130,12 @@ function resize(): void {
   if (level) layout = measure(w, h);
 }
 
+/**
+ * The buckets share the picture's width evenly, so the gaps between them are equal whatever the width.
+ * Their dots start from the ring square under them (entryCell), which is this point snapped to a square.
+ */
 function bucketCentreX(i: number): number {
-  const cell = entryCell(scene, i) % frameWidth(scene);
-  return layout.left + (cell + 0.5) * layout.cell;
+  return layout.left + (1 + ((i + 0.5) * scene.width) / scene.slots.length) * layout.cell;
 }
 
 function textColour(hex: string): string {
