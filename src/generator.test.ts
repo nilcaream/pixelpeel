@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createState, pick, status, tick, type Pot } from './engine.ts';
-import { deal, measure, perturb, playRandom, replay, resume } from './generator.ts';
+import { deal, measure, perturb, play, replay } from './generator.ts';
 import { HOUSE, HOUSE_RULES } from './level.ts';
 import { seededRng } from './rng.ts';
+import { reachable, status, type Pot } from './rules.ts';
 
 describe('deal', () => {
   it('deals the house so that playing its plan wins, for every seed tried', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const rules = { ...HOUSE_RULES, seed };
       const d = deal(HOUSE, rules);
-      expect(status(replay(HOUSE, d, rules.buckets)), `seed ${seed}`).toBe('won');
+      expect(status(replay(HOUSE, d.columns, rules.buckets, d.plan)), `seed ${seed}`).toBe('won');
     }
   });
 
@@ -53,31 +53,42 @@ describe('perturb', () => {
   });
 });
 
-describe('measure and resume', () => {
+describe('players and measure', () => {
   const d = deal(HOUSE, HOUSE_RULES);
   const shuffled = perturb(d.columns.flat(), 4, { spread: 40, reverse: 1.5, merge: 0.3 }, seededRng(3));
 
+  /** For each pick of a game: whether its pot could reach a pixel, and whether any top pot could. */
+  const choices = (picks: number[]) =>
+    picks.map((column, i) => {
+      const b = replay(HOUSE, shuffled, 4, picks.slice(0, i));
+      const free = reachable(b);
+      const reaches = (c: number) => ((free[(b.columns[c] as Pot[])[0]?.colour ?? -1] ?? 0) as number) > 0;
+      return { reaches: reaches(column), any: b.columns.some((_, c) => reaches(c)) };
+    });
+
+  it('has the sensible player pick a shut-in pot only when every top pot is shut in', () => {
+    for (let seed = 1; seed <= 20; seed++)
+      for (const c of choices(play(HOUSE, shuffled, 4, seed, 'sensible').picks)) expect(c.reaches || !c.any).toBe(true);
+  });
+
+  it('has the random player pick shut-in pots while others could reach', () => {
+    const all = Array.from({ length: 20 }, (_, i) => choices(play(HOUSE, shuffled, 4, i + 1, 'random').picks)).flat();
+    expect(all.some((c) => !c.reaches && c.any)).toBe(true);
+  });
+
   it('gives up early only where the full measure is outside the band too', () => {
-    const full = measure(HOUSE, shuffled, 4, 60);
+    const full = measure(HOUSE, shuffled, 4, 60, 'random');
     for (const band of [[0.1, 0.35], [0.35, 0.65], [0.65, 0.9], [0.9, 1]] as const) {
-      const quick = measure(HOUSE, shuffled, 4, 60, band);
+      const quick = measure(HOUSE, shuffled, 4, 60, 'random', band);
       const share = full.wins / 60;
       const inside = share >= band[0] && (share < band[1] || band[1] === 1);
       expect(quick.outside === undefined, `band ${band}`).toBe(inside);
       if (inside) expect(quick.wins).toBe(full.wins);
     }
-  }, 30_000);
+  });
 
-  it('brings a game back to where its last pick left it', () => {
-    const game = playRandom(HOUSE, shuffled, 4, 5);
-    const some = game.picks.slice(0, 6);
-    const resumed = resume(HOUSE, shuffled, 4, some);
-    let s = createState(HOUSE, shuffled, 4);
-    for (const p of some) {
-      while (s.ticks < p.tick) s = tick(s);
-      s = pick(s, p.column);
-    }
-    expect(resumed).toEqual(s);
-    expect(resumed.ticks).toBe((some.at(-1) as { tick: number }).tick);
+  it('replays a game to the same end', () => {
+    const game = play(HOUSE, shuffled, 4, 5, 'random');
+    expect(status(replay(HOUSE, shuffled, 4, game.picks))).toBe(game.won ? 'won' : 'stuck');
   });
 });

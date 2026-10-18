@@ -3,8 +3,8 @@
 // grows (the picture's size, then its colours, then the columns), so a level is harder than the level
 // with the same band ten earlier. Difficulty is measured: the share of random pick orders that win.
 
-import type { Pot } from './engine.ts';
-import type { PlannedPick, Knobs } from './generator.ts';
+import type { Knobs, Player } from './generator.ts';
+import type { Pot } from './rules.ts';
 
 export type Band = 'easy' | 'medium' | 'hard' | 'very hard';
 
@@ -16,8 +16,11 @@ export const BANDS: Record<Band, readonly [number, number]> = {
   'very hard': [0.1, 0.35],
 };
 
-/** How many random games measure a level. */
+/** How many games measure a level. */
 export const PLAYOUTS = 200;
+
+/** Who plays the games that measure a level. */
+export const GAUGE: Player = 'random';
 
 export function bandOf(share: number): Band | null {
   for (const [band, [lo, hi]] of Object.entries(BANDS) as [Band, readonly [number, number]][])
@@ -83,8 +86,8 @@ export interface Level {
   playouts: number;
   wins: number;
   winShare: number;
-  /** A game that wins this level: pick this column at this tick. */
-  winningOrder: PlannedPick[];
+  /** A game that wins this level: the column of each pick, in turn. */
+  winningOrder: number[];
 }
 
 /** FNV-1a over the picture, the deal and the buckets, as 8 hex digits. */

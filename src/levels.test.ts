@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { status } from './engine.ts';
 import { makePots, measure, perturb, replay } from './generator.ts';
 import levelsFile from './levels.json';
-import { PLAYOUTS, bandFor, bandOf, levelId, structureFor, type Level } from './levels.ts';
+import { GAUGE, PLAYOUTS, bandFor, bandOf, levelId, structureFor, type Level } from './levels.ts';
 import { CLEAR, MAX_COLOURS, POOL } from './palette.ts';
 import { poolPicture } from './picture.ts';
 import { seededRng } from './rng.ts';
+import { status } from './rules.ts';
 
 const levels = levelsFile as unknown as Level[];
 
@@ -17,7 +17,7 @@ describe('the baked levels', () => {
 
   it.each(levels.map((l) => [l.number, l] as const))('level %i can be won: its winning order replays to a win', (_, l) => {
     const picture = poolPicture(l.rows);
-    const end = replay(picture, { columns: l.columns, plan: l.winningOrder }, l.structure.buckets);
+    const end = replay(picture, l.columns, l.structure.buckets, l.winningOrder);
     expect(status(end)).toBe('won');
   });
 
@@ -43,7 +43,7 @@ describe('the baked levels', () => {
     for (const pot of l.columns.flat()) dealt[pot.colour] = (dealt[pot.colour] as number) + pot.count;
     expect(dealt).toEqual(picture.palette.map((_, c) => picture.cells.filter((x) => x === c).length));
     const rng = seededRng(l.seed);
-    const pots = makePots(picture, { ...l.structure, seed: l.seed }, rng).map((m) => m.pot);
+    const pots = makePots(picture, { ...l.structure, seed: l.seed }, rng);
     expect(perturb(pots, l.structure.columns, l.knobs, rng)).toEqual(l.columns);
     expect(l.id).toBe(levelId(l.rows, l.columns, l.structure.buckets));
   });
@@ -63,7 +63,7 @@ describe('the baked levels', () => {
 
   it('measures the very hard levels again to exactly the stored share', () => {
     for (const l of levels.filter((x) => x.band === 'very hard')) {
-      const m = measure(poolPicture(l.rows), l.columns, l.structure.buckets, l.playouts);
+      const m = measure(poolPicture(l.rows), l.columns, l.structure.buckets, l.playouts, GAUGE);
       expect(m.wins, `level ${l.number}`).toBe(l.wins);
     }
   }, 30_000);

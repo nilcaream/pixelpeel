@@ -1,15 +1,16 @@
-// The page: draws the state on a canvas, turns a tap on a column into a pick, and ticks the rules at a
-// fixed rate. All the rules live in engine.ts; this file only shows them. The player is always on the
-// first level not yet peeled; every pick is saved, so a reload replays the picks and goes on exactly
-// where it was left.
+// The page: turns a tap on a column into a pick, which the rules (rules.ts) settle at once, and draws the
+// scene (scene.ts) that shows it, ticking at a fixed rate. A pick waits for a bucket that is free on
+// screen. The player is always on the first level not yet peeled; every pick is saved, so a reload
+// replays the picks and goes on exactly where it was left.
 
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
-import { AT_BUCKET, EMPTY, entryCell, frameWidth, pick, status, tick, type State } from './engine.ts';
-import { resume, type PlannedPick } from './generator.ts';
+import { replay } from './generator.ts';
 import levelsFile from './levels.json';
 import type { Band, Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
 import { browserStore, loadProgress, saveProgress, type Progress } from './progress.ts';
+import { EMPTY, pick, status, type Board } from './rules.ts';
+import { AT_BUCKET, createScene, entryCell, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
 import './style.css';
 
 /** How many cells a dot moves per second; a constant to tune. */
@@ -38,8 +39,11 @@ const store = browserStore();
 let progress: Progress = loadProgress(store);
 let level: Level | null = null;
 let picture: Picture;
-let picks: PlannedPick[] = [];
-let state: State;
+let picks: number[] = [];
+/** What the rules say: the truth of the game. */
+let board: Board;
+/** What the screen shows of it, catching up. */
+let scene: Scene;
 
 /** Opens the level the progress is on, resuming its saved picks when they belong to this very level. */
 function open(): void {
@@ -56,7 +60,8 @@ function open(): void {
   picture = poolPicture(level.rows);
   const saved = progress.run?.id === level.id ? progress.run.picks : [];
   picks = saved.slice();
-  state = resume(picture, level.columns, level.structure.buckets, picks);
+  board = replay(picture, level.columns, level.structure.buckets, picks);
+  scene = createScene(board);
   progress = { ...progress, run: { id: level.id, picks } };
   saveProgress(store, progress);
   resize();
@@ -90,14 +95,14 @@ let layout: Layout;
 
 /** Portrait first: one tall column (picture, buckets, pots) that fits the screen and is centred on a wide one. */
 function measure(width: number, height: number): Layout {
-  const fw = state.width + 2;
-  const fh = state.height + 2;
+  const fw = scene.width + 2;
+  const fh = scene.height + 2;
   const at = (inner: number): Layout & { total: number } => {
     const pad = inner * 0.04;
     const cell = inner / Math.max(fw, fh);
     const gap = inner * 0.04;
-    const bucketSize = Math.min(((state.width * cell) / state.buckets.length) * 0.8, inner * 0.16);
-    const columnWidth = inner / state.columns.length;
+    const bucketSize = Math.min(((scene.width * cell) / scene.slots.length) * 0.8, inner * 0.16);
+    const columnWidth = inner / board.columns.length;
     const potSize = Math.min(columnWidth * 0.7, inner * 0.16);
     const potGap = potSize * 0.18;
     const bucketY = HUD_HEIGHT + pad + fh * cell + gap;
@@ -126,7 +131,7 @@ function resize(): void {
 }
 
 function bucketCentreX(i: number): number {
-  const cell = entryCell(state, i) % frameWidth(state);
+  const cell = entryCell(scene, i) % frameWidth(scene);
   return layout.left + (cell + 0.5) * layout.cell;
 }
 
@@ -156,28 +161,28 @@ function draw(frac: number): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!level) return;
   const { left, top, cell } = layout;
-  const fw = frameWidth(state);
+  const fw = frameWidth(scene);
 
-  for (let y = 0; y < state.height; y++) {
-    for (let x = 0; x < state.width; x++) {
-      const c = state.cells[y * state.width + x] as number;
+  for (let y = 0; y < scene.height; y++) {
+    for (let x = 0; x < scene.width; x++) {
+      const c = scene.cells[y * scene.width + x] as number;
       if (c === EMPTY) continue;
-      ctx.fillStyle = state.palette[c] as string;
+      ctx.fillStyle = scene.palette[c] as string;
       ctx.fillRect(left + (x + 1) * cell, top + (y + 1) * cell, Math.ceil(cell), Math.ceil(cell));
     }
   }
 
   // The grid of the picture's pixels, over filled and emptied squares alike.
   ctx.beginPath();
-  for (let i = 0; i <= state.width; i++) {
+  for (let i = 0; i <= scene.width; i++) {
     const x = left + (i + 1) * cell;
     ctx.moveTo(x, top + cell);
-    ctx.lineTo(x, top + (state.height + 1) * cell);
+    ctx.lineTo(x, top + (scene.height + 1) * cell);
   }
-  for (let j = 0; j <= state.height; j++) {
+  for (let j = 0; j <= scene.height; j++) {
     const y = top + (j + 1) * cell;
     ctx.moveTo(left + cell, y);
-    ctx.lineTo(left + (state.width + 1) * cell, y);
+    ctx.lineTo(left + (scene.width + 1) * cell, y);
   }
   ctx.lineWidth = Math.max(1, cell * 0.06);
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
@@ -190,16 +195,16 @@ function draw(frac: number): void {
     const fy = (step - fx) / fw;
     return [left + (fx + 0.5) * cell, top + (fy + 0.5) * cell];
   };
-  for (const dot of state.dots) {
+  for (const dot of scene.dots) {
     const a = dot.route[dot.pos] as number;
     const b = (dot.route[dot.pos + 1] ?? a) as number;
-    const [ax, ay] = at(a, dot.bucket);
-    const [bx, by] = at(b, dot.bucket);
+    const [ax, ay] = at(a, dot.slot);
+    const [bx, by] = at(b, dot.slot);
     const x = ax + (bx - ax) * frac;
     const y = ay + (by - ay) * frac;
     ctx.beginPath();
     ctx.arc(x, y, cell * 0.36, 0, Math.PI * 2);
-    ctx.fillStyle = state.palette[dot.colour] as string;
+    ctx.fillStyle = scene.palette[dot.colour] as string;
     ctx.fill();
     if (dot.carrying) {
       ctx.lineWidth = Math.max(1.5, cell * 0.14);
@@ -208,7 +213,7 @@ function draw(frac: number): void {
     }
   }
 
-  state.buckets.forEach((bucket, i) => {
+  scene.slots.forEach((bucket, i) => {
     const x = bucketCentreX(i);
     const size = layout.bucketSize;
     if (!bucket) {
@@ -220,12 +225,12 @@ function draw(frac: number): void {
       ctx.setLineDash([]);
       return;
     }
-    drawPot(x, layout.bucketY, size, state.palette[bucket.colour] as string, bucket.count - bucket.pickedUp);
+    drawPot(x, layout.bucketY, size, scene.palette[bucket.colour] as string, bucket.count - bucket.lifted);
   });
 
-  state.columns.forEach((pots, i) => {
+  board.columns.forEach((pots, i) => {
     pots.slice(0, VISIBLE).forEach((pot, k) => {
-      drawPot(columnX(i), potY(k), layout.potSize, state.palette[pot.colour] as string, pot.count);
+      drawPot(columnX(i), potY(k), layout.potSize, scene.palette[pot.colour] as string, pot.count);
     });
   });
 }
@@ -243,16 +248,17 @@ function columnAt(x: number, y: number): number {
   const half = layout.potSize / 2;
   const top = potY(0);
   if (y < top || y > top + layout.potSize) return -1;
-  return state.columns.findIndex((pots, i) => pots.length > 0 && Math.abs(x - columnX(i)) <= half);
+  return board.columns.findIndex((pots, i) => pots.length > 0 && Math.abs(x - columnX(i)) <= half);
 }
 
-/** The player's move, saved at once with the tick it was made at. */
+/** The player's move, once a bucket is free on screen: the rules settle it, the scene shows it, and it is saved. */
 function play(column: number): void {
-  if (!level || status(state) !== 'playing') return;
-  const next = pick(state, column);
-  if (next === state) return;
-  picks.push({ tick: state.ticks, column });
-  state = next;
+  if (!level || status(board) !== 'playing' || freeSlot(scene) < 0) return;
+  const r = pick(board, column);
+  if (!r) return;
+  picks.push(column);
+  board = r.board;
+  scene = place(scene, r.pot, r.lifts);
   saveProgress(store, progress);
 }
 
@@ -264,7 +270,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
 endButton.addEventListener('click', () => {
   if (!level) return;
-  if (status(state) === 'won') goTo(level.number + 1);
+  if (status(board) === 'won') goTo(level.number + 1);
   else goTo(level.number);
 });
 
@@ -274,17 +280,17 @@ function frame(now: number): void {
   acc += now - last;
   last = now;
   if (acc > 1000) acc = STEP_MS;
-  const stepMs = level && onAutopilot(state) ? STEP_MS / AUTOPILOT_SPEED : STEP_MS;
+  const stepMs = level && onAutopilot(board) ? STEP_MS / AUTOPILOT_SPEED : STEP_MS;
   if (level) {
     while (acc >= stepMs) {
       acc -= stepMs;
-      if (status(state) !== 'playing') continue;
-      const column = autopilotPick(state);
+      const column = autopilotPick(board, scene);
       if (column >= 0) play(column);
-      state = tick(state);
+      if (!idle(scene)) scene = tick(scene);
     }
-    const s = status(state);
-    if (s !== 'playing' && end.hidden) {
+    // The end is shown once the screen has caught up with the rules.
+    const s = status(board);
+    if (s !== 'playing' && idle(scene) && end.hidden) {
       if (s === 'won') {
         // The level is peeled: the progress moves on now, so a reload opens the next level.
         progress = { level: level.number + 1, run: null };
@@ -325,13 +331,16 @@ if (import.meta.env.DEV) {
     progress = { level: asked, run: null };
   }
   open();
-  // A hook for test rigs: the level, the state and the moves.
+  // A hook for test rigs: the level, the rules' board, the scene and the moves.
   (window as unknown as { __pixelpeel: unknown }).__pixelpeel = {
     get level() {
       return level;
     },
-    get state() {
-      return state;
+    get board() {
+      return board;
+    },
+    get scene() {
+      return scene;
     },
     pick: play,
     goTo,

@@ -9,15 +9,17 @@ one pixel at a time, colour by colour. You choose the order.
   and a number, and the top three pots of each column are shown.
 - Tap a column to move its top pot into a free bucket.
 - Dots of that colour set off from the bucket. Each one walks around the outside of the picture, goes in
-  through the squares that are already empty, takes the closest pixel of its colour it can reach, and
+  through the squares that are already empty, takes the most exposed pixel of its colour it can reach, and
   carries it back. A dot carrying a pixel has a dark border.
-- The number on a bucket counts the pixels it still has to collect. When it reaches 0 and the last dot is
-  home, the bucket is free again.
+- The number on a bucket counts the pixels it still has to collect. When it reaches 0 the bucket is free
+  again, while its last dots fly home into it.
+- When only one column has pots left there is nothing to decide, so the game picks them itself and runs
+  three times faster.
 - A pixel that other pixels surround can't be reached. If every bucket holds a colour that no dot can reach,
   you are stuck: retry and try another order.
 - Peel the whole picture to win and go on to the next level. Every level can be won.
 
-The game is deterministic: the same picks at the same moments always play out the same way. Your level and
+Only the order of your picks matters, not when you make them: the same picks always play out the same way. Your level and
 every pick you make are kept in the browser, so a reload goes on exactly where you left off.
 
 ## Levels
@@ -48,9 +50,11 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
 
 - `npm ci`, then `npm run dev` (dev server on 127.0.0.1), `npm test` (Vitest), `npm run typecheck`,
   `npm run build` (type check, then `vite build` into `dist/`), `npm run preview`.
-- The rules are in `src/engine.ts`, and they are pure: `pick()` and `tick()` take a state and return the
-  next one. `src/generator.ts` deals, perturbs and measures a level's pots. `src/main.ts` draws the state
-  on a canvas, and `src/progress.ts` keeps the player's progress.
+- The rules are in `src/rules.ts`, a logical model with no time in it: `pick()` takes a board and settles
+  everything that follows at once, so a game's outcome depends only on the order of the picks.
+  `src/scene.ts` animates what the rules decided, with dots on a tick. `src/generator.ts` deals,
+  perturbs and measures a level's pots on the rules. `src/main.ts` draws the scene on a canvas, and
+  `src/progress.ts` keeps the player's progress.
 - The icons are made from the first level's picture: `python3 -I scripts/make-icons.py` (Pillow).
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
   (`.github/workflows/pages.yml`). The site is meant to sit at a domain root, so Vite's `base` is `/`.

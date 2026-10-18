@@ -14,7 +14,7 @@ describe('progress', () => {
 
   it('gives back what was saved', () => {
     const store = memory();
-    const p = { level: 7, run: { id: 'abc12345', picks: [{ tick: 0, column: 2 }, { tick: 14, column: 0 }] } };
+    const p = { level: 7, run: { id: 'abc12345', picks: [2, 0, 1] } };
     saveProgress(store, p);
     expect(loadProgress(store)).toEqual(p);
   });
@@ -23,7 +23,9 @@ describe('progress', () => {
     const store = memory();
     store.data.set(STORAGE_KEY, '{not json');
     expect(loadProgress(store)).toEqual({ level: 1, run: null });
-    store.data.set(STORAGE_KEY, JSON.stringify({ level: 4, run: { id: 'x', picks: [{ tick: 'soon' }] } }));
+    store.data.set(STORAGE_KEY, JSON.stringify({ level: 4, run: { id: 'x', picks: [1, 'soon'] } }));
+    expect(loadProgress(store)).toEqual({ level: 4, run: null });
+    store.data.set(STORAGE_KEY, JSON.stringify({ level: 4, run: { id: 'x', picks: [{ tick: 0, column: 2 }] } }));
     expect(loadProgress(store)).toEqual({ level: 4, run: null });
     store.data.set(STORAGE_KEY, JSON.stringify({ level: -3, run: null }));
     expect(loadProgress(store)).toEqual({ level: 1, run: null });
