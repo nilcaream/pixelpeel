@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { makePots, measure, perturb, replay } from './generator.ts';
 import levelsFile from './levels.json';
-import { GAUGE, PLAYOUTS, bandFor, bandOf, levelId, structureFor, type Level } from './levels.ts';
+import { GAUGE, PLAYOUTS, bandFor, bandOf, capFor, levelId, structureFor, type Level } from './levels.ts';
 import { CLEAR, MAX_COLOURS, POOL } from './palette.ts';
 import { poolPicture } from './picture.ts';
 import { seededRng } from './rng.ts';
@@ -25,8 +25,21 @@ describe('the baked levels', () => {
     expect(l.band).toBe(bandFor(l.number));
     expect(l.playouts).toBe(PLAYOUTS);
     expect(l.winShare).toBe(l.wins / l.playouts);
-    expect(bandOf(l.winShare)).toBe(l.band);
+    expect(bandOf(l.winShare, l.number)).toBe(l.band);
+    expect(l.winShare).toBeLessThan(capFor(l.number));
     expect(l.structure).toEqual(structureFor(l.number));
+  });
+
+  it.each(levels.map((l) => [l.number, l] as const))('level %i is ringed in one colour wherever it meets the empty background', (_, l) => {
+    const at = (x: number, y: number) => l.rows[y]?.[x] ?? CLEAR;
+    const touching = new Set<string>();
+    l.rows.forEach((r, y) =>
+      [...r].forEach((c, x) => {
+        if (c !== CLEAR && [at(x, y - 1), at(x - 1, y), at(x + 1, y), at(x, y + 1)].includes(CLEAR)) touching.add(c);
+      }),
+    );
+    // Outside the frame counts as empty too, so a solid background is the one colour there instead.
+    expect([...touching]).toHaveLength(1);
   });
 
   it.each(levels.map((l) => [l.number, l] as const))('level %i is drawn in distinct pool colours at its size', (_, l) => {

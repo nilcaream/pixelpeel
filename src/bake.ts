@@ -2,9 +2,9 @@
 // in the level's band. Each attempt uses the next seed, and the perturbing strength moves towards the
 // band: up when the last deal was too easy, down when it was too hard, in steps that shrink.
 
-import { backgroundColour, convert, fillClear, type Image } from './convert.ts';
+import { backgroundColour, convert, fillClear, outline, type Image } from './convert.ts';
 import { makePots, measure, perturb, type Knobs } from './generator.ts';
-import { BANDS, GAUGE, PLAYOUTS, bandOf, levelId, type Band, type Level, type Source, type Structure } from './levels.ts';
+import { GAUGE, PLAYOUTS, bandOf, bandRange, levelId, type Band, type Level, type Source, type Structure } from './levels.ts';
 import { POOL } from './palette.ts';
 import { poolPicture } from './picture.ts';
 import { seededRng } from './rng.ts';
@@ -22,7 +22,7 @@ export interface LevelSpec {
  * Where the perturbing strength starts for each band. From 0 to 1 the pots may surface ever earlier
  * than their turn; from 1 to 2 the order is also turned round, until at 2 it is mostly reversed.
  */
-const START: Record<Band, number> = { easy: 0, medium: 0.4, hard: 0.9, 'very hard': 1.3 };
+const START: Record<Band, number> = { easy: 0.5, medium: 1, hard: 1.3, 'very hard': 1.6 };
 const MAX_STRENGTH = 2;
 
 /** The most deals tried for one level before the bake gives up on it. */
@@ -49,10 +49,14 @@ export function knobsAt(strength: number, pots: number): Knobs {
   };
 }
 
-/** The picture of a level, as the converter and the background setting make it. */
+/**
+ * The picture of a level, as the converter, the outline and the background setting make it. The outline
+ * takes one of the level's colours and one square on every side, so the level keeps its size and colours.
+ */
 export function levelRows(spec: LevelSpec, image: Image): { rows: string[]; background: string } {
-  const colours = spec.background === 'colour' ? spec.structure.colours - 1 : spec.structure.colours;
-  const rows = convert(image, { size: spec.structure.size, colours });
+  const colours = spec.structure.colours - 1 - (spec.background === 'colour' ? 1 : 0);
+  const drawn = convert(image, { size: spec.structure.size - 2, colours });
+  const rows = outline(drawn, backgroundColour(drawn));
   if (spec.background === 'clear') return { rows, background: 'clear' };
   const char = backgroundColour(rows);
   return { rows: fillClear(rows, char), background: (POOL.find((c) => c.char === char) as { name: string }).name };
@@ -62,7 +66,7 @@ export function levelRows(spec: LevelSpec, image: Image): { rows: string[]; back
 const POTENTIAL_SEEDS = 8;
 
 /**
- * How hard a picture can be made: the lowest share of random games won over a few deals at full
+ * How hard a picture can be made: the lowest share of games won over a few deals at full
  * strength. Lower is harder; the bake gives the hardest pictures of a block to its hardest levels.
  */
 export function potential(spec: Pick<LevelSpec, 'structure' | 'background'>, image: Image): number {
@@ -90,11 +94,11 @@ export function bakeLevel(spec: LevelSpec, image: Image, log: (line: string) => 
     const pots = makePots(picture, { ...st, seed }, rng);
     const knobs = knobsAt(strength, pots.length);
     const columns = perturb(pots, st.columns, knobs, rng);
-    const m = measure(picture, columns, st.buckets, PLAYOUTS, GAUGE, BANDS[band]);
+    const m = measure(picture, columns, st.buckets, PLAYOUTS, GAUGE, bandRange(spec.number, band));
     const wins =
       m.outside === 'easier' ? `≥ ${m.wins}` : m.outside === 'harder' ? `≤ ${m.wins + PLAYOUTS - m.played}` : `${m.wins}`;
     log(`level ${spec.number} seed ${seed} strength ${strength.toFixed(2)}: ${m.outside ?? 'in band'}, wins ${wins} of ${PLAYOUTS}`);
-    if (!m.outside && m.winning && bandOf(m.wins / PLAYOUTS) === band) {
+    if (!m.outside && m.winning && bandOf(m.wins / PLAYOUTS, spec.number) === band) {
       return {
         number: spec.number,
         band,
