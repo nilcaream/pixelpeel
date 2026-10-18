@@ -10,10 +10,16 @@ import type { Source } from '../src/levels.ts';
 
 const KENNEY_ANIMALS = 'levels/sources/kenney-animal-pack-redux';
 
-function kenneyAnimal(name: string): Source {
+const ANIMALS = [
+  'bear', 'buffalo', 'chick', 'chicken', 'cow', 'crocodile', 'dog', 'duck', 'elephant', 'frog',
+  'giraffe', 'goat', 'gorilla', 'hippo', 'horse', 'monkey', 'moose', 'narwhal', 'owl', 'panda',
+  'parrot', 'penguin', 'pig', 'rabbit', 'rhino', 'sloth', 'snake', 'walrus', 'whale', 'zebra',
+];
+
+function kenneyAnimal(style: 'square' | 'round', name: string): Source {
   return {
     title: name[0]?.toUpperCase() + name.slice(1),
-    file: `${KENNEY_ANIMALS}/${name}.png`,
+    file: `${KENNEY_ANIMALS}/${style}/${name}.png`,
     author: 'Kenney (kenney.nl)',
     licence: 'CC0 1.0',
     licenceUrl: 'http://creativecommons.org/publicdomain/zero/1.0/',
@@ -21,18 +27,20 @@ function kenneyAnimal(name: string): Source {
   };
 }
 
-/** Every picture a level may be made from. */
-export const CANDIDATES: readonly Source[] = [
-  'bear', 'buffalo', 'chick', 'chicken', 'cow', 'crocodile', 'dog', 'duck', 'elephant', 'frog',
-  'giraffe', 'goat', 'gorilla', 'hippo', 'horse', 'monkey', 'moose', 'narwhal', 'owl', 'panda',
-  'parrot', 'penguin', 'pig', 'rabbit', 'rhino', 'sloth', 'snake', 'walrus', 'whale', 'zebra',
-].map(kenneyAnimal);
+/**
+ * The pictures each block of ten levels chooses from, or the earlier block whose pictures it brings
+ * back, larger and with more colours. An animal shown in one block is not chosen again in another,
+ * except where a block repeats one. The first levels show the square animals, whole bodies; the second
+ * block the round heads; the third brings the first block's pictures back.
+ */
+export const BLOCKS: readonly (Source[] | { repeat: number })[] = [
+  ANIMALS.map((a) => kenneyAnimal('square', a)),
+  ANIMALS.map((a) => kenneyAnimal('round', a)),
+  { repeat: 0 },
+];
 
 /**
- * Blocks whose pictures come back from an earlier block, larger and with more colours: the third
- * block of ten levels shows the first block's pictures again.
+ * Levels whose picture keeps a solid background, filled with a pool colour and peeled like the rest.
+ * Every other level leaves the background empty: no pixels there, and dots walk over it from the start.
  */
-export const REPEATS: Readonly<Record<number, number>> = { 2: 0 };
-
-/** How many blocks of ten levels the bake makes. */
-export const BLOCK_COUNT = 3;
+export const SOLID_BACKGROUND: readonly number[] = [];

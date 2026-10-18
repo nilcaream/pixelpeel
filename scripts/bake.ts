@@ -5,7 +5,8 @@
 //
 //   npm run bake            write src/levels.json
 //   npm run bake -- --check  bake again and fail if src/levels.json differs
-//   BACKGROUND=colour npm run bake   fill the pictures' clear backgrounds with a colour to peel
+//   BACKGROUND=colour npm run bake   give every level a solid background to peel, not only the levels
+//                                    scripts/sources.ts lists in SOLID_BACKGROUND
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
@@ -13,10 +14,11 @@ import { Worker } from 'node:worker_threads';
 import type { LevelSpec } from '../src/bake.ts';
 import { bandFor, structureFor, type Band, type Level, type Source } from '../src/levels.ts';
 import type { Task } from './bake-worker.ts';
-import { BLOCK_COUNT, CANDIDATES, REPEATS } from './sources.ts';
+import { BLOCKS, SOLID_BACKGROUND } from './sources.ts';
 
 const LEVELS_FILE = 'src/levels.json';
-const background = process.env.BACKGROUND === 'colour' ? 'colour' : 'clear';
+const allSolid = process.env.BACKGROUND === 'colour';
+const backgroundOf = (level: number) => (allSolid || SOLID_BACKGROUND.includes(level) ? 'colour' : 'clear');
 const check = process.argv.includes('--check');
 
 /** The order a block's levels take its pictures in, hardest picture first. */
@@ -62,20 +64,23 @@ function format(levels: Level[]): string {
   return `[\n${levels.map((l) => `  {\n${Object.entries(l).map(field).join(',\n')}\n  }`).join(',\n')}\n]\n`;
 }
 
-// Pictures for each block: from the candidates no earlier block took, or a repeat of an earlier block's
-// pictures. The hardest ones go to the block's very hard, hard and medium levels, hardest first, and
-// the easy levels take the easiest ones, which leaves the middle of the field for later blocks.
+// Pictures for each block: from its candidates whose animal no earlier block showed, or a repeat of an
+// earlier block's pictures. The hardest ones go to the block's very hard, hard and medium levels,
+// hardest first, and the easy levels take the easiest ones. A picture's potential is measured with the
+// block's first level's background.
 const started = Date.now();
 const specs: LevelSpec[] = [];
 const chosen: Source[][] = [];
-const used = new Set<string>();
-for (let b = 0; b < BLOCK_COUNT; b++) {
+const shown = new Set<string>();
+for (const [b, block] of BLOCKS.entries()) {
   const first = b * 10 + 1;
   const structure = structureFor(first);
-  const repeat = REPEATS[b];
-  const field = repeat === undefined ? CANDIDATES.filter((c) => !used.has(c.file)) : (chosen[repeat] as Source[]);
+  const field = 'repeat' in block ? (chosen[block.repeat] as Source[]) : block.filter((c) => !shown.has(c.title));
   const potentials = await runAll<number>(
-    field.map((source) => ({ kind: 'potential', spec: { number: 0, band: 'easy', structure, source, background } })),
+    field.map((source) => ({
+      kind: 'potential',
+      spec: { number: 0, band: 'easy', structure, source, background: backgroundOf(first) },
+    })),
   );
   const ranked = field.map((source, i) => ({ source, potential: potentials[i] as number })).sort((x, y) => x.potential - y.potential);
   const numbers = Array.from({ length: 10 }, (_, i) => first + i).sort(
@@ -87,9 +92,9 @@ for (let b = 0; b < BLOCK_COUNT; b++) {
   chosen[b] = picks.map((p) => p.source);
   numbers.forEach((number, i) => {
     const { source, potential } = picks[i] as (typeof picks)[number];
-    used.add(source.file);
+    shown.add(source.title);
     console.log(`level ${number}: ${source.title}, ${bandFor(number)}, hardest share ${potential}`);
-    specs.push({ number, band: bandFor(number), structure, source, background });
+    specs.push({ number, band: bandFor(number), structure, source, background: backgroundOf(number) });
   });
 }
 specs.sort((x, y) => x.number - y.number);

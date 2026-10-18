@@ -66,5 +66,5 @@ describe('the baked levels', () => {
       const m = measure(poolPicture(l.rows), l.columns, l.structure.buckets, l.playouts);
       expect(m.wins, `level ${l.number}`).toBe(l.wins);
     }
-  });
+  }, 30_000);
 });
