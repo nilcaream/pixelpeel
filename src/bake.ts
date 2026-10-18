@@ -1,35 +1,44 @@
-// Makes one level, offline: converts the source picture, then deals and measures until a deal lands
-// in the level's band. Each attempt uses the next seed, and the perturbing strength moves towards the
-// band: up when the last deal was too easy, down when it was too hard, in steps that shrink.
+// Makes one level, offline, from its scene: deals pots, measures the deal, and keeps the first deal that
+// fits the level's band. A deal fits when the solver wins it, the casual share is in the band, a thinker
+// on the visible pots wins at the band's depth while shallower thinkers do not, and seeing the hidden
+// pots adds no more than MAX_LUCK.
+//
+// The knobs turn in this order: the perturbing strength first (up when the deal was too easy, down when
+// too hard), then fewer buckets (5, 4, 3) once the strength alone could not make it hard enough, then the
+// scene's next seed. The cheap measures go first, so most deals are thrown out after a few games.
 
-import { backgroundColour, convert, fillClear, outline, type Image } from './convert.ts';
 import { makePots, measure, perturb, type Knobs } from './generator.ts';
-import { GAUGE, PLAYOUTS, bandOf, bandRange, levelId, type Band, type Level, type Source, type Structure } from './levels.ts';
-import { POOL } from './palette.ts';
-import { poolPicture } from './picture.ts';
+import {
+  BANDS,
+  CASUAL_GAMES,
+  MAX_LUCK,
+  THINKER_GAMES,
+  VISIBLE,
+  bandFor,
+  casualFit,
+  levelId,
+  thinkerFit,
+  type Band,
+  type Level,
+  type Structure,
+} from './levels.ts';
+import { poolPicture, type Picture } from './picture.ts';
+import type { Pot } from './rules.ts';
+import { SCENES, sceneRows } from './scenes.ts';
 import { seededRng } from './rng.ts';
+import { solve, thinkerShare } from './thinker.ts';
 
-export interface LevelSpec {
-  number: number;
-  band: Band;
-  structure: Structure;
-  source: Source;
-  /** 'clear' keeps the image's transparent background clear; 'colour' fills it with a pool colour to peel. */
-  background: 'clear' | 'colour';
-}
-
-/**
- * Where the perturbing strength starts for each band. From 0 to 1 the pots may surface ever earlier
- * than their turn; from 1 to 2 the order is also turned round, until at 2 it is mostly reversed.
- */
-const START: Record<Band, number> = { easy: 0.5, medium: 1, hard: 1.3, 'very hard': 1.6 };
+/** Columns and pot sizes of every scene level; the buckets are a knob. */
+const BASE = { columns: 4, potMin: 10, potMax: 40 };
+const BUCKETS = [5, 4, 3] as const;
+const SCENE_SEEDS = 3;
+/** Deals tried per bucket count before fewer buckets are tried. */
+const ATTEMPTS = 8;
+const START_STRENGTH = 1;
+/** The first step of the strength; it halves each time the deals turn from too easy to too hard or back. */
+const STRENGTH_STEP = 0.25;
+const MIN_STEP = 0.05;
 const MAX_STRENGTH = 2;
-
-/** The most deals tried for one level before the bake gives up on it. */
-export const MAX_ATTEMPTS = 200;
-
-/** The bake gives up early once this many deals in a row were too easy at full strength, or too hard at none. */
-const STUCK_AT_LIMIT = 40;
 
 /** The merge chance at strength 1 and above. */
 const MAX_MERGE = 0.3;
@@ -39,6 +48,10 @@ const MAX_REVERSE = 2;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
+/**
+ * From 0 to 1 the pots may surface ever earlier than their turn, and pots of a colour may merge; from
+ * 1 to 2 the order is also turned round, until at 2 it is mostly reversed.
+ */
 export function knobsAt(strength: number, pots: number): Knobs {
   const spreadPart = Math.min(1, strength);
   const reversePart = Math.max(0, strength - 1);
@@ -49,82 +62,88 @@ export function knobsAt(strength: number, pots: number): Knobs {
   };
 }
 
-/**
- * The picture of a level, as the converter, the outline and the background setting make it. The outline
- * takes one of the level's colours and one square on every side, so the level keeps its size and colours.
- */
-export function levelRows(spec: LevelSpec, image: Image): { rows: string[]; background: string } {
-  const colours = spec.structure.colours - 1 - (spec.background === 'colour' ? 1 : 0);
-  const drawn = convert(image, { size: spec.structure.size - 2, colours });
-  const rows = outline(drawn, backgroundColour(drawn));
-  if (spec.background === 'clear') return { rows, background: 'clear' };
-  const char = backgroundColour(rows);
-  return { rows: fillClear(rows, char), background: (POOL.find((c) => c.char === char) as { name: string }).name };
-}
+export type Verdict =
+  | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[] }
+  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; winningOrder: number[] };
 
-/** How many deals at full strength measure how hard a picture can be made. */
-const POTENTIAL_SEEDS = 8;
-
-/**
- * How hard a picture can be made: the lowest share of games won over a few deals at full
- * strength. Lower is harder; the bake gives the hardest pictures of a block to its hardest levels.
- */
-export function potential(spec: Pick<LevelSpec, 'structure' | 'background'>, image: Image): number {
-  const picture = poolPicture(levelRows({ ...spec, number: 0, band: 'easy', source: {} as Source }, image).rows);
-  const st = spec.structure;
-  let lowest = 1;
-  for (let seed = 1; seed <= POTENTIAL_SEEDS; seed++) {
-    const rng = seededRng(seed);
-    const pots = makePots(picture, { ...st, seed }, rng);
-    const columns = perturb(pots, st.columns, knobsAt(MAX_STRENGTH, pots.length), rng);
-    lowest = Math.min(lowest, measure(picture, columns, st.buckets, PLAYOUTS, GAUGE).wins / PLAYOUTS);
+/** Measures one deal for a band, cheapest measure first, and stops at the first that rules it out. */
+export function judge(picture: Picture, columns: Pot[][], buckets: number, band: Band): Verdict {
+  const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', BANDS[band].casual);
+  const casualWins = casual.wins;
+  const fit = casual.outside ?? casualFit(band, casual.wins / CASUAL_GAMES);
+  if (fit !== 'in') return { fits: false, why: fit, casualWins, thinkers: [] };
+  const thinkers: number[] = [];
+  let depth: ReturnType<typeof thinkerFit> = 'harder';
+  for (let d = 1; d <= BANDS[band].depth[1]; d++) {
+    thinkers.push(thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: VISIBLE, depth: d }));
+    depth = thinkerFit(band, thinkers);
+    if (depth !== 'harder') break;
   }
-  return lowest;
+  if (typeof depth !== 'number') return { fits: false, why: depth, casualWins, thinkers };
+  const solved = solve(picture, columns, buckets);
+  if (solved.result !== 'win') return { fits: false, why: 'harder', casualWins, thinkers };
+  const fullSight = thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: Infinity, depth });
+  const luck = round2(Math.max(0, fullSight - Math.max(...thinkers)));
+  if (luck > MAX_LUCK) return { fits: false, why: 'luck', casualWins, thinkers };
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, winningOrder: solved.picks };
 }
 
-export function bakeLevel(spec: LevelSpec, image: Image, log: (line: string) => void = () => {}): Level {
-  const { rows, background } = levelRows(spec, image);
-  const picture = poolPicture(rows);
-  const { structure: st, band } = spec;
-  let strength = START[band];
-  let step = 0.25;
-  let atLimit = 0;
-  for (let seed = 1; seed <= MAX_ATTEMPTS; seed++) {
-    const rng = seededRng(seed);
-    const pots = makePots(picture, { ...st, seed }, rng);
-    const knobs = knobsAt(strength, pots.length);
-    const columns = perturb(pots, st.columns, knobs, rng);
-    const m = measure(picture, columns, st.buckets, PLAYOUTS, GAUGE, bandRange(spec.number, band));
-    const wins =
-      m.outside === 'easier' ? `≥ ${m.wins}` : m.outside === 'harder' ? `≤ ${m.wins + PLAYOUTS - m.played}` : `${m.wins}`;
-    log(`level ${spec.number} seed ${seed} strength ${strength.toFixed(2)}: ${m.outside ?? 'in band'}, wins ${wins} of ${PLAYOUTS}`);
-    if (!m.outside && m.winning && bandOf(m.wins / PLAYOUTS, spec.number) === band) {
-      return {
-        number: spec.number,
-        band,
-        id: levelId(rows, columns, st.buckets),
-        source: spec.source,
-        rows,
-        background,
-        structure: st,
-        columns,
-        seed,
-        knobs,
-        playouts: PLAYOUTS,
-        wins: m.wins,
-        winShare: m.wins / PLAYOUTS,
-        winningOrder: m.winning,
-      };
+/** The deal of a level, as its picture, structure, seed and strength make it. */
+export function dealFor(picture: Picture, structure: Structure, seed: number, strength: number): { columns: Pot[][]; knobs: Knobs } {
+  const rng = seededRng(seed);
+  const pots = makePots(picture, { ...structure, seed }, rng);
+  const knobs = knobsAt(strength, pots.length);
+  return { columns: perturb(pots, structure.columns, knobs, rng), knobs };
+}
+
+export function bakeLevel(number: number, log: (line: string) => void = () => {}): Level {
+  const scene = SCENES[number - 1];
+  if (!scene) throw new Error(`level ${number} has no scene`);
+  const band = bandFor(number);
+  for (let sceneSeed = 1; sceneSeed <= SCENE_SEEDS; sceneSeed++) {
+    const rows = sceneRows(scene, sceneSeed);
+    const picture = poolPicture(rows);
+    for (const buckets of BUCKETS) {
+      const structure: Structure = { ...BASE, buckets };
+      let strength = START_STRENGTH;
+      let step = STRENGTH_STEP;
+      let last: 'easier' | 'harder' | 'luck' = 'easier';
+      for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+        const seed = sceneSeed * 1000 + buckets * 100 + attempt;
+        const { columns, knobs } = dealFor(picture, structure, seed, strength);
+        const v = judge(picture, columns, buckets, band);
+        log(
+          `level ${number} scene seed ${sceneSeed} buckets ${buckets} strength ${strength}: ` +
+            `${v.fits ? 'fits' : v.why}, casual ${v.casualWins}/${CASUAL_GAMES}, thinkers ${v.thinkers.join(' ')}`,
+        );
+        if (v.fits)
+          return {
+            number,
+            band,
+            id: levelId(rows, columns, buckets),
+            title: scene.title,
+            sceneSeed,
+            rows,
+            structure,
+            columns,
+            seed,
+            strength,
+            knobs,
+            casualWins: v.casualWins,
+            thinkers: v.thinkers,
+            depth: v.depth,
+            fullSight: v.fullSight,
+            luck: v.luck,
+            winningOrder: v.winningOrder,
+          };
+        if (v.why !== 'luck' && last !== 'luck' && v.why !== last && attempt > 1) step = Math.max(MIN_STEP, step / 2);
+        last = v.why;
+        if (v.why === 'easier') strength = round2(Math.min(MAX_STRENGTH, strength + step));
+        if (v.why === 'harder') strength = round2(Math.max(0, strength - step));
+      }
+      // Fewer buckets only make a deal harder: no use when this many were already too hard.
+      if (last === 'harder') break;
     }
-    const easier = m.outside === 'easier';
-    const limit = easier ? MAX_STRENGTH : 0;
-    atLimit = strength === limit ? atLimit + 1 : 0;
-    if (atLimit >= STUCK_AT_LIMIT)
-      throw new Error(
-        `level ${spec.number} (${band}, ${spec.source.title}): ${STUCK_AT_LIMIT} deals in a row were too ${easier ? 'easy at full strength' : 'hard with no perturbing'}`,
-      );
-    strength = Math.min(MAX_STRENGTH, Math.max(0, strength + (easier ? step : -step)));
-    step = Math.max(0.04, step * 0.85);
   }
-  throw new Error(`level ${spec.number} (${band}, ${spec.source.title}): no deal landed in the band in ${MAX_ATTEMPTS} attempts`);
+  throw new Error(`level ${number} (${band}, ${scene.title}): no deal fitted the band`);
 }

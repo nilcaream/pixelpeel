@@ -25,29 +25,30 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
 
 ## Levels
 
-- Levels come in waves: easy, medium, hard, with a very hard one every tenth level. Every ten levels the
-  structure grows: first the picture's size (20 → 24 squares), then its colours (4 → 5). Levels 21–30
-  bring the pictures of levels 1–10 back, larger and with more colours.
-- Difficulty is measured: each level is played by 200 sensible players, who pick at random among the
-  columns whose top pot can reach a pixel right now, and among all columns only when none can. The share
-  that wins sets the band: easy 80% up to the block's cap, medium 60–80%, hard 20–60%, very hard 2–20%.
-  No level is won by every player: the cap is 98% for levels 1–10, 96% for 11–20, 94% for 21–30 and 92%
-  after that.
-- Each picture is ringed by one square of a colour of its own, which has to be peeled before the picture
-  opens up.
-- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, a few minutes on all cores). For each
-  level it converts the source picture into the colour pool (`src/convert.ts`, `src/palette.ts`), deals pots
-  that are known to win, and perturbs them (pots surface early, the order is turned round, pots merge)
-  until the measured share lands in the band. Each level keeps its source and licence, its seed and knobs,
-  the measured share and one winning order, which a test replays. `npm run bake -- --check` bakes again
-  and fails if the committed file differs.
-- A picture's background is empty: no pixels there, and dots walk over it from the start. A level listed in
-  `SOLID_BACKGROUND` (`scripts/sources.ts`) fills it with a colour to peel instead, and
-  `BACKGROUND=colour npm run bake` does so for every level.
-- The pictures are Kenney's "Animal Pack Redux", CC0 (https://opengameart.org/content/animal-pack-redux),
-  in `levels/sources/` with the pack's licence. Levels 1–10 (and 21–30) show the square animals, and levels
-  11–20 the round heads. The candidates are listed in `scripts/sources.ts`, and the bake gives the
-  pictures that can be made hardest to the hardest levels.
+- The pictures are scenes drawn in code (`src/scenes.ts`), 32×24, in up to 11 colours of one pool of clearly
+  different colours (`src/palette.ts`). A scene fills its whole rectangle, gives each area two tones
+  dithered together, and nests small things in big ones. At least three colours touch its edge, so no
+  single colour is the only way in.
+- Levels come in waves: easy, medium, hard, with a very hard one every tenth level.
+- Difficulty is measured on skill, not luck (`src/levels.ts`, `src/thinker.ts`). A casual player picks at
+  random among the columns whose top pot can reach a pixel right now. A thinker looks a few picks ahead on
+  the pots the page shows. A level's depth is how far ahead a thinker must look to win (90% of its games),
+  and its luck is what a thinker gains by seeing the hidden pots too:
+
+  | band | casual players win | depth |
+  |---|---|---|
+  | easy | 80–98% | 1 |
+  | medium | 50–80% | 1–2 |
+  | hard | under 50% | 2, and a depth-1 thinker wins at most 60% |
+  | very hard | under 20% | 3, and depth 1 and 2 win at most 40% and 60% |
+
+  Every level has a luck of at most 5%, and a solver proves it can be won.
+- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, one worker per level). For each level it
+  deals pots that are known to win and perturbs them (pots surface early, the order is turned round, pots
+  merge). It measures the deal, the cheapest measure first, and turns the knobs in this order: the strength
+  of the perturbing, then fewer buckets (5, 4, 3), then the scene's next seed. Each level keeps its seeds,
+  strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` bakes
+  again and fails if the committed file differs.
 - In `npm run dev` a level list, a Skip button and `?level=N` are there for trying levels; the production
   build leaves them out.
 
@@ -58,7 +59,7 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
 - The rules are in `src/rules.ts`, a logical model with no time in it: `pick()` takes a board and settles
   everything that follows at once, so a game's outcome depends only on the order of the picks.
   `src/scene.ts` animates what the rules decided, with dots on a tick. `src/generator.ts` deals,
-  perturbs and measures a level's pots on the rules. `src/main.ts` draws the scene on a canvas, and
+  perturbs and measures a level's pots on the rules, and `src/bake.ts` keeps the deals that fit a band. `src/main.ts` draws the scene on a canvas, and
   `src/progress.ts` keeps the player's progress.
 - The icons are made from the first level's picture: `python3 -I scripts/make-icons.py` (Pillow).
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages

@@ -6,7 +6,7 @@
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { replay } from './generator.ts';
 import levelsFile from './levels.json';
-import type { Band, Level } from './levels.ts';
+import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
 import { browserStore, loadProgress, saveProgress, type Progress } from './progress.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
@@ -16,9 +16,6 @@ import './style.css';
 /** How many cells a dot moves per second; a constant to tune. */
 const STEPS_PER_SECOND = 10;
 const STEP_MS = 1000 / STEPS_PER_SECOND;
-
-/** How many pots of each column are shown. */
-const VISIBLE = 3;
 
 /** The height kept free at the top for the level's number and band. */
 const HUD_HEIGHT = 40;
@@ -315,7 +312,7 @@ if (import.meta.env.DEV) {
   for (const l of LEVELS) {
     const option = document.createElement('option');
     option.value = String(l.number);
-    option.textContent = `${l.number} · ${BAND_LABEL[l.band]} · ${l.source.title} · ${Math.round(l.winShare * 100)}%`;
+    option.textContent = `${l.number} · ${BAND_LABEL[l.band]} · ${l.title} · depth ${l.depth} · casual ${Math.round((l.casualWins / CASUAL_GAMES) * 100)}%`;
     chooser.append(option);
   }
   chooser.addEventListener('change', () => goTo(Number(chooser.value)));
