@@ -14,7 +14,7 @@
 
 :root {
   --pixel-font: 'Press Start 2P', system-ui, sans-serif;
-  --header-h: 88px;
+  --header-h: 92px;
   --footer-h: 52px;
   --page: #1c1c22;
   --ink: #f0f0f4;
@@ -81,13 +81,13 @@ body {
 
 /*
  * "Level 10" is 8 × 16 = 128 px. Its line is the menu button's height and top, so it is centred on the
- * button; the 6 px under it clear the button's 3 px edge.
+ * button; the 10 px under it keep the name clear of the button's 3 px edge.
  */
 #level-number {
   font-size: 16px;
   height: 32px;
   line-height: 32px;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 /* "All levels peeled" would be 17 × 16 = 272 px and cut short at 360: 17 × 12 = 204 px. */
@@ -191,9 +191,13 @@ body {
   position: fixed;
   inset: 0;
   display: flex;
-  align-items: flex-start;
+  /*
+   * Centred on the screen. The panel's edge reaches 4 px above it and 4 + 12 px below (its shadow), so the
+   * bottom is padded 8 px more than the top to leave the same gap at both ends.
+   */
+  align-items: center;
   justify-content: center;
-  padding: 48px 16px 16px;
+  padding: 24px 16px 32px;
   background: rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
   /* Above the end of a level, which comes later in the page. */

@@ -2,7 +2,7 @@
 // between the header and the footer, and is centred there on a wide or a tall screen.
 
 /** The height kept free at the top for the menu button and the level's three lines (--header-h in src/style.css). */
-export const HEADER_HEIGHT = 88;
+export const HEADER_HEIGHT = 92;
 
 /** The level's name is in the pixel font, whose letters are all 1 em wide, at 12 px or as wide as the page allows. */
 const NAME_SIZE = 12;
