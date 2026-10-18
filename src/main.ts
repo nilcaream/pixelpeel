@@ -3,6 +3,7 @@
 // first level not yet peeled; every pick is saved, so a reload replays the picks and goes on exactly
 // where it was left.
 
+import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { AT_BUCKET, EMPTY, entryCell, frameWidth, pick, status, tick, type State } from './engine.ts';
 import { resume, type PlannedPick } from './generator.ts';
 import levelsFile from './levels.json';
@@ -273,10 +274,14 @@ function frame(now: number): void {
   acc += now - last;
   last = now;
   if (acc > 1000) acc = STEP_MS;
+  const stepMs = level && onAutopilot(state) ? STEP_MS / AUTOPILOT_SPEED : STEP_MS;
   if (level) {
-    while (acc >= STEP_MS) {
-      acc -= STEP_MS;
-      if (status(state) === 'playing') state = tick(state);
+    while (acc >= stepMs) {
+      acc -= stepMs;
+      if (status(state) !== 'playing') continue;
+      const column = autopilotPick(state);
+      if (column >= 0) play(column);
+      state = tick(state);
     }
     const s = status(state);
     if (s !== 'playing' && end.hidden) {
@@ -291,7 +296,7 @@ function frame(now: number): void {
       end.hidden = false;
     }
   }
-  draw(acc / STEP_MS);
+  draw(acc / stepMs);
   requestAnimationFrame(frame);
 }
 
