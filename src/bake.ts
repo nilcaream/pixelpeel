@@ -12,6 +12,7 @@ import {
   CASUAL_GAMES,
   MAX_LUCK,
   THINKER_GAMES,
+  THINKER_WINS,
   VISIBLE,
   bandFor,
   casualFit,
@@ -88,6 +89,44 @@ export function judge(picture: Picture, columns: Pot[][], buckets: number, rule:
   return { fits: true, casualWins, thinkers, depth, fullSight, luck, winningOrder: solved.picks };
 }
 
+/**
+ * How far a deal that was ruled out on its thinkers misses the band: the most a shallow thinker is over its
+ * cap, or how far the deepest allowed thinker falls short of winning. Null for a deal ruled out on the casual
+ * share alone (its casual measure stopped early, so it cannot be ranked) or for a deal that fits.
+ */
+export function missBy(rule: BandRule, v: Verdict): { by: number; what: string } | null {
+  if (v.fits || v.thinkers.length === 0) return null;
+  const wins = rule.wins ?? THINKER_WINS;
+  if (v.why === 'luck') return { by: 0, what: 'more luck than allowed' };
+  let worst: { by: number; what: string } | null = null;
+  v.thinkers.forEach((share, i) => {
+    const cap = rule.shallow[i];
+    if (cap !== undefined && share > cap && (!worst || share - cap > worst.by)) worst = { by: round2(share - cap), what: `depth-${i + 1} thinker wins ${share}, over ${cap}` };
+    if (cap === undefined && i + 1 < rule.depth[0] && share >= wins) worst = { by: round2(rule.depth[0] - i - 1), what: `won at depth ${i + 1}, below ${rule.depth[0]}` };
+  });
+  if (worst) return worst;
+  const deepest = v.thinkers[v.thinkers.length - 1] as number;
+  return { by: round2(wins - deepest), what: `depth-${v.thinkers.length} thinker wins ${deepest}, under ${wins}` };
+}
+
+/** The full measure of a deal taken as the closest to its band: thinkers up to the band's depth, the solver, luck. */
+function judgeClosest(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule, casualWins: number): Verdict & { fits: true } {
+  const thinkers: number[] = [];
+  let depth = rule.depth[1];
+  for (let d = 1; d <= rule.depth[1]; d++) {
+    thinkers.push(thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: VISIBLE, depth: d }));
+    if ((thinkers[d - 1] as number) >= (rule.wins ?? THINKER_WINS)) {
+      depth = d;
+      break;
+    }
+  }
+  const solved = solve(picture, columns, buckets);
+  if (solved.result !== 'win') throw new Error('the closest deal cannot be won');
+  const fullSight = thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: Infinity, depth });
+  const luck = round2(Math.max(0, fullSight - Math.max(...thinkers)));
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, winningOrder: solved.picks };
+}
+
 /** The deal of a level, as its picture, structure, seed and strength make it. */
 export function dealFor(picture: Picture, structure: Structure, seed: number, strength: number): { columns: Pot[][]; knobs: Knobs } {
   const rng = seededRng(seed);
@@ -106,17 +145,21 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
   if (!scene) throw new Error(`level ${number} has no scene`);
   const band = bandFor(number);
   const rule = ruleFor(number);
+  /** The deal nearest the band so far, among those ruled out on their thinkers, for when nothing fits. */
+  const best: { closest: { by: number; what: string; sceneSeed: number; buckets: number; seed: number; strength: number } | null } = { closest: null };
   /** Deals and judges one deal; the level when it fits. */
-  const tryDeal = (sceneSeed: number, buckets: number, seed: number, strength: number) => {
+  const tryDeal = (sceneSeed: number, buckets: number, seed: number, strength: number, verdict?: Verdict & { fits: true }) => {
     const rows = sceneRows(scene, sceneSeed);
     const picture = poolPicture(rows);
     const structure: Structure = { ...BASE, buckets };
     const { columns, knobs } = dealFor(picture, structure, seed, strength);
-    const v = judge(picture, columns, buckets, rule);
+    const v = verdict ?? judge(picture, columns, buckets, rule);
     log(
       `level ${number} scene seed ${sceneSeed} buckets ${buckets} strength ${strength}: ` +
         `${v.fits ? 'fits' : v.why}, casual ${v.casualWins}/${CASUAL_GAMES}, thinkers ${v.thinkers.join(' ')}`,
     );
+    const miss = missBy(rule, v);
+    if (miss && (!best.closest || miss.by < best.closest.by)) best.closest = { ...miss, sceneSeed, buckets, seed, strength };
     const level: Level | null = v.fits
       ? {
           number,
@@ -138,7 +181,7 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
           winningOrder: v.winningOrder,
         }
       : null;
-    return { v, level };
+    return { v, level, picture, columns };
   };
   for (let sceneSeed = 1; sceneSeed <= SCENE_SEEDS; sceneSeed++) {
     for (const buckets of BUCKETS) {
@@ -168,5 +211,13 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
           const { level } = tryDeal(sceneSeed, buckets, seed, strength);
           if (level) return level;
         }
-  throw new Error(`level ${number} (${band}, ${scene.title}): no deal fitted the band`);
+  // Nothing fitted: the level takes the closest deal, measured in full, and says what it misses. A level
+  // whose every deal was ruled out on the casual share alone has no closest deal: its picture must change.
+  const c = best.closest;
+  if (!c) throw new Error(`level ${number} (${band}, ${scene.title}): no deal fitted the band`);
+  const first = tryDeal(c.sceneSeed, c.buckets, c.seed, c.strength);
+  const full = judgeClosest(first.picture, first.columns, c.buckets, rule, first.v.casualWins);
+  const { level } = tryDeal(c.sceneSeed, c.buckets, c.seed, c.strength, full);
+  log(`level ${number} takes its closest deal: ${c.what}`);
+  return { ...(level as Level), misses: c.what };
 }

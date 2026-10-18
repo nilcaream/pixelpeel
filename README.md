@@ -30,10 +30,11 @@ progress (tap twice), and links to this repository.
 
 ## Levels
 
-- The pictures are scenes drawn in code (`src/scenes.ts`), 32×24, in up to 11 colours of one pool of clearly
+- The pictures are scenes drawn in code (`src/scenes.ts`), in up to 11 colours of one pool of clearly
   different colours (`src/palette.ts`). A scene fills its whole rectangle, gives each area two tones
   dithered together, and nests small things in big ones. At least three colours touch its edge, so no
-  single colour is the only way in.
+  single colour is the only way in. Levels 1–20 are 32×24; from level 21 the scenes are 40×30, with room
+  for shading, gradients, textures and scattered detail (a cell is still about 8 px on a 360 px phone).
 - Levels come in waves: easy, medium, hard, with a very hard one every tenth level. Each block of ten
   levels is a step harder than the one before.
 - Difficulty is measured on skill, not luck (`src/levels.ts`, `src/thinker.ts`). A casual player picks at
@@ -48,8 +49,18 @@ progress (tap twice), and links to this repository.
   | hard | under 50% | 2, and depth 1 wins at most 60% | under 30% | 2–3, and depth 1 wins at most 40% |
   | very hard | under 20% | 3, and depth 1 and 2 win at most 40% and 60% | under 10% | 4, and depth 1, 2 and 3 win at most 20%, 30% and 50% |
 
-  Every level has a luck of at most 5%, and a solver proves it can be won.
-- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, one worker per level). For each level it
+  | band | levels 21–30: casual players win | depth | levels 31–40: casual players win | depth |
+  |---|---|---|---|---|
+  | easy | 50–75% | 1 | 40–65% | 1 |
+  | medium | 25–55% | 2, and depth 1 wins at most 60% | 20–45% | 2–3, and depth 1 wins at most 50% |
+  | hard | under 25% | 2–3, and depth 1 wins at most 30% | under 20% | 2–3, and depth 1 wins at most 25% |
+  | very hard | under 8% | 3–4, and depth 1 and 2 win at most 15% and 25% | under 6% | 3–4, and depth 1 and 2 win at most 10% and 20% |
+
+  Every level has a luck of at most 5%, and a solver proves it can be won. When no deal of a picture fits
+  its band, the level takes the closest deal and records what it misses (`misses` in `src/levels.json`): an
+  outlier now and then is accepted on the way to a hundred levels.
+- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, one worker per level; `npm run bake -- 21 22`
+  bakes only those levels and keeps the others as the file has them). For each level it
   deals pots that are known to win and perturbs them (pots surface early, the order is turned round, pots
   merge). It measures the deal, the cheapest measure first, and turns the knobs in this order: the strength
   of the perturbing, then fewer buckets (5, 4, 3), then the scene's next seed. When that search finds no deal,

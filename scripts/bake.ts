@@ -1,8 +1,9 @@
 // Bakes the scene levels into src/levels.json, offline, one worker per level. The bake is deterministic:
 // the same scenes and rules always give the same file, which is what `--check` holds the committed file to.
 //
-//   npm run bake            write src/levels.json
-//   npm run bake -- --check  bake again and fail if src/levels.json differs
+//   npm run bake              write src/levels.json
+//   npm run bake -- 21 22     bake only those levels and keep the others as the file has them
+//   npm run bake -- --check   bake again and fail if src/levels.json differs
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
@@ -12,6 +13,7 @@ import { SCENES } from '../src/scenes.ts';
 
 const LEVELS_FILE = 'src/levels.json';
 const check = process.argv.includes('--check');
+const only = process.argv.slice(2).filter((a) => /^\d+$/.test(a)).map(Number);
 
 /** Bakes the levels on a pool of workers and returns them in order. */
 async function bakeAll(numbers: number[]): Promise<Level[]> {
@@ -60,12 +62,15 @@ function format(levels: Level[]): string {
 }
 
 const started = Date.now();
-const levels = await bakeAll(SCENES.map((_, i) => i + 1));
+const all = SCENES.map((_, i) => i + 1);
+const kept = only.length ? (JSON.parse(readFileSync(LEVELS_FILE, 'utf8')) as Level[]) : [];
+const baked = await bakeAll(only.length ? only : all);
+const levels = all.map((n) => baked.find((l) => l.number === n) ?? kept.find((l) => l.number === n)).filter((l): l is Level => !!l);
 for (const l of levels)
   console.log(
     `level ${String(l.number).padStart(2)} ${l.band.padEnd(9)} ${l.title.padEnd(24)} buckets ${l.structure.buckets} ` +
       `strength ${l.strength} depth ${l.depth} casual ${(l.casualWins / 200).toFixed(3)} thinkers ${l.thinkers.join(' ')} ` +
-      `full ${l.fullSight} luck ${l.luck} pots ${l.columns.flat().length}`,
+      `full ${l.fullSight} luck ${l.luck} pots ${l.columns.flat().length}${l.misses ? ` MISSES ${l.misses}` : ''}`,
   );
 const text = format(levels);
 console.log(`baked ${levels.length} levels in ${Math.round((Date.now() - started) / 1000)} s`);

@@ -48,6 +48,14 @@ export interface BandRule {
  *
  * Block 2: every casual range moves down by 0.15 to 0.3; medium needs a depth-2 thinker, hard may
  * need depth 3, and the thinkers one step shallower are held lower.
+ *
+ * Block 3: casual ranges down by another 0.1, and every shallow cap lower (hard holds depth 1 to 0.3,
+ * very hard holds depth 1 and 2 to 0.15 and 0.25). Very hard may be won at depth 3 or 4: on these pictures
+ * a deal where depth 2 is held under 0.5 and depth 3 still loses is a cliff, not a band, so demanding depth
+ * 3 for hard and 4 for very hard found no deal at all (levels 29, 30, 33, 36, 39, 40 on the first bake).
+ *
+ * Block 4: casual ranges down by another 0.1 (easy from 0.4, hard under 0.2, very hard under 0.06);
+ * medium may need depth 3, and every shallow cap is lower again.
  */
 export const BLOCKS: readonly Record<Band, BandRule>[] = [
   {
@@ -61,6 +69,18 @@ export const BLOCKS: readonly Record<Band, BandRule>[] = [
     medium: { casual: [0.35, 0.65], depth: [2, 2], shallow: [0.7] },
     hard: { casual: [0, 0.3], depth: [2, 3], shallow: [0.4] },
     'very hard': { casual: [0, 0.1], depth: [4, 4], shallow: [0.2, 0.3, 0.5], wins: 0.85 },
+  },
+  {
+    easy: { casual: [0.5, 0.75], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.25, 0.55], depth: [2, 2], shallow: [0.6] },
+    hard: { casual: [0, 0.25], depth: [2, 3], shallow: [0.3] },
+    'very hard': { casual: [0, 0.08], depth: [3, 4], shallow: [0.15, 0.25], wins: 0.85 },
+  },
+  {
+    easy: { casual: [0.4, 0.65], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.2, 0.45], depth: [2, 3], shallow: [0.5] },
+    hard: { casual: [0, 0.2], depth: [2, 3], shallow: [0.25] },
+    'very hard': { casual: [0, 0.06], depth: [3, 4], shallow: [0.1, 0.2], wins: 0.85 },
   },
 ];
 
@@ -133,6 +153,11 @@ export interface Level {
   /** The share of a thinker of that depth that sees every pot. */
   fullSight: number;
   luck: number;
+  /**
+   * Set when no deal fitted the band and this is the closest one found: which bound it misses and by how
+   * much. An outlier now and then is accepted; the level still has a winning order and a luck of at most MAX_LUCK.
+   */
+  misses?: string;
 }
 
 /** FNV-1a over the picture, the deal and the buckets, as 8 hex digits. */
