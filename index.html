@@ -14,10 +14,16 @@
   <body>
     <div id="hud">
       <button id="menu-button" type="button" aria-label="Menu" aria-controls="menu" aria-expanded="false">☰</button>
-      <span id="level-label"></span>
-      <select id="level-chooser" aria-label="Level" hidden></select>
+      <div id="level-info">
+        <span id="level-number"></span>
+        <span id="level-name"></span>
+      </div>
     </div>
     <canvas id="game"></canvas>
+    <div id="footer" aria-hidden="true">
+      <span style="color: #e53935">P</span><span style="color: #fb8c00">i</span><span style="color: #fdd835">x</span><span style="color: #8bc34a">e</span><span style="color: #4fc3f7">l</span>
+      <span style="color: #2f6fe0">P</span><span style="color: #a83cc8">e</span><span style="color: #f48fb1">e</span><span style="color: #ffffff">l</span>
+    </div>
     <div id="menu" hidden>
       <div class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="menu-title">
         <header>
@@ -28,6 +34,7 @@
         <div id="menu-levels"></div>
         <button id="menu-clear" type="button">Clear progress</button>
         <label id="menu-dev" hidden><input id="menu-dev-toggle" type="checkbox" /> Dev mode</label>
+        <select id="level-chooser" aria-label="Any level" hidden></select>
         <a id="menu-github" href="https://github.com/nilcaream/pixelpeel" target="_blank" rel="noopener">Pixel Peel on GitHub</a>
       </div>
     </div>
