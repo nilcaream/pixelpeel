@@ -8,7 +8,7 @@ import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { CONFIRM_MS, confirmTaps } from './confirm.ts';
 import { DEV_KEY, isDevHost } from './dev.ts';
 import { replay } from './generator.ts';
-import { measure, type Layout } from './layout.ts';
+import { measure, nameFontSize, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
@@ -116,6 +116,7 @@ function resize(): void {
   // with no level open, over the left edge of the column the game would use.
   const edge = level ? layout.left + layout.cell : (w - Math.min(w * 0.92, 560)) / 2;
   menuButton.style.left = `${Math.round(edge)}px`;
+  levelName.style.fontSize = `${nameFontSize(w, levelName.textContent?.length ?? 0)}px`;
 }
 
 /**

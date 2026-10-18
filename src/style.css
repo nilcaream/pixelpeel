@@ -14,7 +14,7 @@
 
 :root {
   --pixel-font: 'Press Start 2P', system-ui, sans-serif;
-  --header-h: 76px;
+  --header-h: 88px;
   --footer-h: 52px;
   --page: #1c1c22;
   --ink: #f0f0f4;
@@ -44,9 +44,9 @@ body {
 
 /*
  * The bar at the top: the level in the middle, on three lines: the number, the picture's name, the band.
- * The menu button sits over the picture's left edge (placed by src/main.ts), so the middle keeps 62 px
- * clear on both sides: 236 px at 360. The heights here are HEADER_HEIGHT and FOOTER_HEIGHT in
- * src/layout.ts.
+ * The number shares a row with the menu button (placed over the picture's left edge by src/main.ts) and
+ * is centred on it; the name and the band sit below the button and take the whole width but a 16 px
+ * gutter. The heights here are HEADER_HEIGHT and FOOTER_HEIGHT in src/layout.ts.
  */
 #hud {
   position: fixed;
@@ -55,13 +55,13 @@ body {
   top: 0;
   height: var(--header-h);
   box-sizing: border-box;
-  padding: 8px 0 0;
+  padding: 11px 16px 0;
   display: flex;
   justify-content: center;
 }
 
 #level-info {
-  max-width: calc(100% - 124px);
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -79,10 +79,15 @@ body {
   white-space: nowrap;
 }
 
-/* "Level 10" is 8 × 16 = 128 px. */
+/*
+ * "Level 10" is 8 × 16 = 128 px. Its line is the menu button's height and top, so it is centred on the
+ * button; the 6 px under it clear the button's 3 px edge.
+ */
 #level-number {
   font-size: 16px;
-  margin-bottom: 4px;
+  height: 32px;
+  line-height: 32px;
+  margin-bottom: 6px;
 }
 
 /* "All levels peeled" would be 17 × 16 = 272 px and cut short at 360: 17 × 12 = 204 px. */
@@ -90,7 +95,10 @@ body {
   font-size: 12px;
 }
 
-/* The longest names, "Bee in the meadow" and "Fruit on a branch", are 17 × 12 = 204 px. */
+/*
+ * 12 px, or smaller when the name would not fit the width: src/main.ts sets nameFontSize. The longest,
+ * "Space station over a ringed planet", is 34 × 12 = 408 px.
+ */
 #level-name {
   font-size: 12px;
 }
