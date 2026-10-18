@@ -21,6 +21,9 @@ import './style.css';
 const STEPS_PER_SECOND = 10;
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 
+/** The pixel font of the page (src/style.css), which the numbers on the pots are drawn in too. */
+const PIXEL_FONT = '"Pixelify Sans", system-ui, sans-serif';
+
 const BAND_SHORT: Record<Band, string> = { easy: 'E', medium: 'M', hard: 'H', 'very hard': 'VH' };
 
 const LEVELS = levelsFile as unknown as Level[];
@@ -121,7 +124,7 @@ function drawPot(x: number, y: number, size: number, colour: string, n: number):
   ctx.fillStyle = colour;
   ctx.fill();
   ctx.fillStyle = textColour(colour);
-  ctx.font = `600 ${Math.round(size * 0.42)}px system-ui, sans-serif`;
+  ctx.font = `700 ${Math.round(size * 0.46)}px ${PIXEL_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(n), x, y + size / 2 + 1);
@@ -381,4 +384,9 @@ if (isDevHost(location.hostname)) {
 }
 
 window.addEventListener('resize', resize);
-requestAnimationFrame(frame);
+// A canvas draws with whatever font is loaded at that moment, so the first frame waits for the pixel font;
+// if it cannot load, the game starts in the fallback font.
+document.fonts
+  .load(`700 20px ${PIXEL_FONT}`)
+  .catch(() => [])
+  .then(() => requestAnimationFrame(frame));
