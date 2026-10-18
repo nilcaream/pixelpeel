@@ -12,8 +12,25 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
-    <div id="hud"><span id="level-label"></span></div>
+    <div id="hud">
+      <button id="menu-button" type="button" aria-label="Menu" aria-controls="menu" aria-expanded="false">☰</button>
+      <span id="level-label"></span>
+      <select id="level-chooser" aria-label="Level" hidden></select>
+    </div>
     <canvas id="game"></canvas>
+    <div id="menu" hidden>
+      <div class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+        <header>
+          <h1 id="menu-title"><canvas id="menu-logo" aria-hidden="true"></canvas>Pixel Peel</h1>
+          <button id="menu-close" type="button" aria-label="Close">✕</button>
+        </header>
+        <h2>Levels</h2>
+        <div id="menu-levels"></div>
+        <button id="menu-clear" type="button">Clear progress</button>
+        <label id="menu-dev" hidden><input id="menu-dev-toggle" type="checkbox" /> Dev mode</label>
+        <a id="menu-github" href="https://github.com/nilcaream/pixelpeel" target="_blank" rel="noopener">Pixel Peel on GitHub</a>
+      </div>
+    </div>
     <div id="end" hidden>
       <p id="end-text"></p>
       <button id="end-button" type="button"></button>

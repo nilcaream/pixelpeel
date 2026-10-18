@@ -10,6 +10,14 @@ describe('the layout', () => {
     expect(l.columnsY).toBeGreaterThan(l.bucketY + l.bucketSize);
   });
 
+  it('centres the column in the height a tall phone has to spare', () => {
+    const l = measure(360, 780, SHAPE);
+    const bottom = l.columnsY + SHAPE.visible * (l.potSize + l.potGap) + l.inner * 0.04;
+    const above = l.top - l.inner * 0.04 - HUD_HEIGHT;
+    expect(above).toBeGreaterThan(0);
+    expect(above).toBeCloseTo(780 - bottom, 6);
+  });
+
   it('never gives a size below zero, even in a window shorter than the bar at the top', () => {
     // A window this short happens for a moment when the browser's device toolbar is switched on.
     for (const height of [0, 1, HUD_HEIGHT - 1, HUD_HEIGHT]) {

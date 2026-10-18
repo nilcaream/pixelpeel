@@ -23,28 +23,171 @@ body {
   height: 100dvh;
 }
 
+/* The bar at the top: the menu button on the left, the level in the middle, kept clear of the button on
+   both sides so the middle stays centred. */
 #hud {
   position: fixed;
   left: 0;
   right: 0;
   top: 0;
   height: 40px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-items: center;
+  padding: 0 8px;
   font-size: 15px;
   letter-spacing: 0.02em;
 }
 
+#hud [hidden] {
+  display: none;
+}
+
+#level-label,
+#level-chooser {
+  grid-column: 2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#menu-button {
+  grid-column: 1;
+  width: 36px;
+  height: 32px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 8px;
+}
+
 #hud select,
-#hud button {
+#hud button,
+.menu-panel button {
   font: inherit;
   color: var(--ink);
   background: #2a2a33;
   border: 1px solid #44444f;
+  cursor: pointer;
+}
+
+#level-chooser {
+  width: 100%;
+  max-width: 300px;
   border-radius: 999px;
   padding: 4px 12px;
+}
+
+#menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px 16px;
+  background: rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+
+#menu[hidden] {
+  display: none;
+}
+
+.menu-panel {
+  width: 100%;
+  max-width: 360px;
+  max-height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: 1px solid #33333d;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.menu-panel h1 {
+  margin: 0;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The logo is the Cactus level, one canvas pixel per square, scaled up without smoothing. */
+#menu-logo {
+  width: 48px;
+  height: 36px;
+  image-rendering: pixelated;
+  border-radius: 4px;
+}
+
+.menu-panel h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9a9aa6;
+}
+
+#menu-close {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+#menu-levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#menu-levels button {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+#menu-levels button[aria-current='true'] {
+  background: var(--ink);
+  color: var(--page);
+}
+
+#menu-clear {
+  padding: 10px;
+  border-radius: 10px;
+}
+
+#menu-dev {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#menu-dev[hidden] {
+  display: none;
+}
+
+#menu-dev input {
+  width: 20px;
+  height: 20px;
+}
+
+#menu-github {
+  color: #8ab4ff;
 }
 
 #end {

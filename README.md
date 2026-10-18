@@ -3,6 +3,8 @@
 A small puzzle in the browser. A pixel picture sits at the top of the screen, and little dots peel it apart,
 one pixel at a time, colour by colour. You choose the order.
 
+**Live: [pixelpeel.nilcaream.com](https://pixelpeel.nilcaream.com)**
+
 ## How to play
 
 - Below the picture is a row of **buckets**, and below them are **columns of pots**. Each pot has a colour
@@ -21,6 +23,9 @@ one pixel at a time, colour by colour. You choose the order.
 
 Only the order of your picks matters, not when you make them: the same picks always play out the same way. Your level and
 every pick you make are kept in the browser, so a reload goes on exactly where you left off.
+
+The menu (☰, top left) plays any level you have peeled again, clears your progress, and links to this
+repository.
 
 ## Levels
 
@@ -48,8 +53,9 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
   of the perturbing, then fewer buckets (5, 4, 3), then the scene's next seed. Each level keeps its seeds,
   strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` bakes
   again and fails if the committed file differs.
-- In `npm run dev` a level list, a Skip button and `?level=N` are there for trying levels; the production
-  build leaves them out.
+- Dev mode is for trying levels. The menu offers it only when the page is opened at exactly `127.0.0.1`
+  (for example `npm run dev`), never anywhere else. Once it is on, it stays on there, and the bar shows a
+  list of every level with its band, depth and casual win rate. On that host, `?level=N` opens level N.
 
 ## Development
 
@@ -60,9 +66,11 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
   `src/scene.ts` animates what the rules decided, with dots on a tick. `src/generator.ts` deals,
   perturbs and measures a level's pots on the rules, and `src/bake.ts` keeps the deals that fit a band. `src/main.ts` draws the scene on a canvas, and
   `src/progress.ts` keeps the player's progress.
-- The icons are made from the first level's picture: `python3 -I scripts/make-icons.py` (Pillow).
+- The icons and the logo are the Cactus level's picture. The icons are made by
+  `python3 -I scripts/make-icons.py` (Pillow), and the menu draws the logo from the same level.
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
-  (`.github/workflows/pages.yml`). The site is meant to sit at a domain root, so Vite's `base` is `/`.
+  (`.github/workflows/pages.yml`). The site is at a domain root, pixelpeel.nilcaream.com, so Vite's
+  `base` is `/` and the manifest and icons are linked by absolute path.
 
 ## Licence
 

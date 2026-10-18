@@ -51,5 +51,7 @@ export function measure(width: number, height: number, shape: Shape): Layout {
     inner *= Math.max(0, height - HUD_HEIGHT) / (l.total - HUD_HEIGHT);
     l = at(inner);
   }
-  return { ...l, inner };
+  // A tall screen (a phone held upright) has height to spare: the column sits in the middle of it.
+  const shift = Math.max(0, height - l.total) / 2;
+  return { ...l, top: l.top + shift, bucketY: l.bucketY + shift, columnsY: l.columnsY + shift, inner };
 }
