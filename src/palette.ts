@@ -22,8 +22,8 @@ export const POOL: readonly Colour[] = [
   { name: 'pink', char: 'k', hex: '#f48fb1' },
   { name: 'brown', char: 'n', hex: '#7a4a2a' },
   { name: 'white', char: 'w', hex: '#ffffff' },
-  { name: 'grey', char: 'e', hex: '#9e9e9e' },
-  { name: 'charcoal', char: 'c', hex: '#5e5e62' },
+  { name: 'grey', char: 'e', hex: '#a8a8a8' },
+  { name: 'charcoal', char: 'c', hex: '#5b5b5f' },
 ];
 
 /** The character for a square with no pixel: the page shows through it from the start. */
