@@ -9,10 +9,9 @@ import { CONFIRM_MS, confirmTaps } from './confirm.ts';
 import { DEV_KEY, isDevHost } from './dev.ts';
 import { replay } from './generator.ts';
 import { measure, type Layout } from './layout.ts';
-import { LOGO_TITLE, logoRows } from './logo.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
-import { CLEAR_CELL, poolPicture, type Picture } from './picture.ts';
+import { poolPicture, type Picture } from './picture.ts';
 import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
@@ -308,21 +307,6 @@ function showMenu(shown: boolean): void {
   menu.hidden = !shown;
   menuButton.setAttribute('aria-expanded', String(shown));
   unarm();
-}
-
-// The app's logo is the Cactus level made square, drawn square for square, as the icons are.
-const logoLevel = LEVELS.find((l) => l.title === LOGO_TITLE);
-if (logoLevel) {
-  const logo = document.getElementById('menu-logo') as HTMLCanvasElement;
-  const logoPicture = poolPicture(logoRows(logoLevel.sceneSeed));
-  logo.width = logoPicture.width;
-  logo.height = logoPicture.height;
-  const lctx = logo.getContext('2d') as CanvasRenderingContext2D;
-  logoPicture.cells.forEach((c, i) => {
-    if (c === CLEAR_CELL) return;
-    lctx.fillStyle = logoPicture.palette[c] as string;
-    lctx.fillRect(i % logoPicture.width, Math.floor(i / logoPicture.width), 1, 1);
-  });
 }
 
 menuButton.addEventListener('click', () => showMenu(menu.hidden === true));
