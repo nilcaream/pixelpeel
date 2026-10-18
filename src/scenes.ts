@@ -13,17 +13,20 @@ export const SCENE_HEIGHT = 24;
 export class Canvas {
   readonly g: string[][];
   readonly rng: Rng;
-  constructor(rng: Rng) {
+  /** Rows of the same scene drawn above and below the picture's 24, for a square icon; 0 for a level. */
+  readonly pad: number;
+  constructor(rng: Rng, pad = 0) {
     this.rng = rng;
-    this.g = Array.from({ length: SCENE_HEIGHT }, () => Array.from({ length: SCENE_WIDTH }, () => 's'));
+    this.pad = pad;
+    this.g = Array.from({ length: SCENE_HEIGHT + 2 * pad }, () => Array.from({ length: SCENE_WIDTH }, () => 's'));
   }
 
   at(x: number, y: number): string | undefined {
-    return this.g[y]?.[x];
+    return this.g[y + this.pad]?.[x];
   }
 
   put(x: number, y: number, c: string): void {
-    const row = this.g[y];
+    const row = this.g[y + this.pad];
     if (row && x >= 0 && x < SCENE_WIDTH) row[x] = c;
   }
 
@@ -33,7 +36,7 @@ export class Canvas {
 
   /** An ellipse; its lower right is in `shade`, dithered at the edge, and its upper left in `light`. */
   ellipse(cx: number, cy: number, rx: number, ry: number, c: string, shade?: string, light?: string): void {
-    for (let y = 0; y < SCENE_HEIGHT; y++)
+    for (let y = -this.pad; y < SCENE_HEIGHT + this.pad; y++)
       for (let x = 0; x < SCENE_WIDTH; x++) {
         const u = (x - cx) / rx;
         const v = (y - cy) / ry;
@@ -62,7 +65,7 @@ export class Canvas {
   ground(top: number, wave = 1.5, light = 'g', deep = 'd'): void {
     for (let x = 0; x < SCENE_WIDTH; x++) {
       const h = top + Math.round(wave * Math.sin(x / 4));
-      for (let y = h; y < SCENE_HEIGHT; y++) {
+      for (let y = h; y < SCENE_HEIGHT + this.pad; y++) {
         const d = y - h;
         this.put(x, y, d > 3 || (d > 1 && (x + y) % 2 === 0) ? deep : light);
       }
@@ -322,9 +325,12 @@ export const SCENES: readonly Scene[] = [
   },
 ];
 
-/** The rows of a scene, its scattered pixels placed by the seed. */
-export function sceneRows(scene: Scene, seed: number): string[] {
-  const c = new Canvas(seededRng(seed));
+/**
+ * The rows of a scene, its scattered pixels placed by the seed. With `pad`, the scene goes on for that many
+ * rows above and below (more sky, more ground), and the level's own rows sit unchanged in the middle.
+ */
+export function sceneRows(scene: Scene, seed: number, pad = 0): string[] {
+  const c = new Canvas(seededRng(seed), pad);
   scene.draw(c);
   return c.rows();
 }
