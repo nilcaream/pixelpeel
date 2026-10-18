@@ -21,11 +21,12 @@ one pixel at a time, colour by colour. You choose the order.
   you are stuck: retry and try another order.
 - Peel the whole picture to win and go on to the next level. Every level can be won.
 
-Only the order of your picks matters, not when you make them: the same picks always play out the same way. Your level and
-every pick you make are kept in the browser, so a reload goes on exactly where you left off.
+Only the order of your picks matters, not when you make them: the same picks always play out the same
+way. Your level and every pick you make are kept in the browser, so a reload goes on exactly where you
+left off.
 
-The menu (☰, top left) plays any level you have peeled again, clears your progress, and links to this
-repository.
+The menu (☰, over the picture's top left corner) plays any level you have peeled again, clears your
+progress (tap twice), and links to this repository.
 
 ## Levels
 
@@ -36,8 +37,8 @@ repository.
 - Levels come in waves: easy, medium, hard, with a very hard one every tenth level.
 - Difficulty is measured on skill, not luck (`src/levels.ts`, `src/thinker.ts`). A casual player picks at
   random among the columns whose top pot can reach a pixel right now. A thinker looks a few picks ahead on
-  the pots the page shows. A level's depth is how far ahead a thinker must look to win (90% of its games),
-  and its luck is what a thinker gains by seeing the hidden pots too:
+  the pots the page shows. A level's depth is how far ahead a thinker must look to win (90% of its games,
+  85% on a very hard level), and its luck is what a thinker gains by seeing the hidden pots too:
 
   | band | casual players win | depth |
   |---|---|---|
@@ -54,7 +55,7 @@ repository.
   strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` bakes
   again and fails if the committed file differs.
 - Dev mode is for trying levels. The menu offers it only when the page is opened at exactly `127.0.0.1`
-  (for example `npm run dev`), never anywhere else. Once it is on, it stays on there, and the bar shows a
+  (for example `npm run dev`), never anywhere else. Once it is on, it stays on there, and the menu shows a
   list of every level with its band, depth and casual win rate. On that host, `?level=N` opens level N.
 
 ## Development
@@ -64,8 +65,8 @@ repository.
 - The rules are in `src/rules.ts`, a logical model with no time in it: `pick()` takes a board and settles
   everything that follows at once, so a game's outcome depends only on the order of the picks.
   `src/scene.ts` animates what the rules decided, with dots on a tick. `src/generator.ts` deals,
-  perturbs and measures a level's pots on the rules, and `src/bake.ts` keeps the deals that fit a band. `src/main.ts` draws the scene on a canvas, and
-  `src/progress.ts` keeps the player's progress.
+  perturbs and measures a level's pots on the rules, and `src/bake.ts` keeps the deals that fit a band.
+  `src/main.ts` draws the scene on a canvas, and `src/progress.ts` keeps the player's progress.
 - The icons are the Cactus level's scene made square, with a few more rows of its sky above and its sand
   below (`src/logo.ts`). They are made by `python3 -I scripts/make-icons.py` (Pillow).
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
@@ -74,6 +75,6 @@ repository.
 
 ## Licence
 
-MIT, see `LICENSE`. The font, Press Start 2P by The Press Start 2P Project Authors (Reserved Font Name "Press Start 2P"), is
-under the SIL Open Font License 1.1 and ships unmodified, see
-`public/fonts/OFL.txt`, which is published beside the font.
+MIT, see `LICENSE`. The font, Press Start 2P by The Press Start 2P Project Authors (Reserved Font Name
+"Press Start 2P"), is under the SIL Open Font License 1.1 and ships unmodified: see `public/fonts/OFL.txt`,
+which is published beside the font.
