@@ -323,6 +323,272 @@ export const SCENES: readonly Scene[] = [
       c.scatter('yp', 12, 19, 23, 'gd');
     },
   },
+  {
+    title: 'Hot-air balloon',
+    draw: (c) => {
+      c.cloud(1, 3, 8);
+      c.cloud(23, 13, 7);
+      c.ground(19, 1.2);
+      c.ellipse(15, 7, 6, 6, 'r', 'n');
+      for (let y = 1; y <= 13; y++)
+        for (const x of [12, 13, 17, 18]) {
+          if (c.at(x, y) === 'r') c.put(x, y, 'y');
+          else if (c.at(x, y) === 'n') c.put(x, y, 'o');
+        }
+      c.put(12, 13, 'c');
+      c.put(12, 14, 'c');
+      c.put(18, 13, 'c');
+      c.put(18, 14, 'c');
+      c.rect(12, 15, 18, 16, 'n');
+      c.rect(12, 15, 18, 15, 'o');
+      c.ellipse(26, 5, 3, 3, 'b');
+      for (let y = 2; y <= 8; y++) for (const x of [25, 27]) if (c.at(x, y) === 'b') c.put(x, y, 'w');
+      c.put(25, 9, 'c');
+      c.put(27, 9, 'c');
+      c.rect(25, 10, 27, 10, 'n');
+      c.scatter('ryw', 14, 20, 23, 'gd');
+    },
+  },
+  {
+    title: 'Windmill',
+    draw: (c) => {
+      c.cloud(18, 1, 8);
+      c.cloud(26, 7, 6);
+      c.ground(14, 0.6);
+      for (let y = 16; y <= 22; y += 2)
+        for (let x = (y / 2) % 2; x < SCENE_WIDTH; x += 2) c.put(x, y, 'rkyp'[(y - 16) / 2] as string);
+      for (let y = 6; y <= 17; y++) {
+        const half = 1 + Math.floor((y - 6) / 4);
+        c.rect(9 - half, y, 9 + half, y, 'w');
+        c.put(9 + half, y, 'e');
+      }
+      c.triangle(9, 3, 5, 2, 'n');
+      c.rect(9, 15, 9, 17, 'n');
+      c.put(9, 11, 'y');
+      for (let i = 1; i <= 6; i++) {
+        c.put(9 + i, 6 - i, 'n');
+        c.put(10 + i, 6 - i, 'w');
+        c.put(9 - i, 6 - i, 'n');
+        c.put(9 - i, 7 - i, 'e');
+        c.put(9 + i, 6 + i, 'n');
+        c.put(9 + i, 5 + i, 'e');
+        c.put(9 - i, 6 + i, 'n');
+        c.put(8 - i, 6 + i, 'w');
+      }
+      c.put(9, 6, 'n');
+    },
+  },
+  {
+    title: 'Ladybird on a leaf',
+    draw: (c) => {
+      c.cloud(1, 1, 7);
+      c.cloud(22, 1, 8);
+      c.ellipse(16, 12, 15, 8, 'g', 'd');
+      c.ellipse(28, 21, 5, 3, 'd', 'g');
+      for (let x = 0; x <= 2; x++) c.put(x, 13, 'n');
+      for (let x = 2; x <= 30; x++) c.put(x, 13 - Math.round((x - 2) / 14), 'd');
+      for (const x0 of [6, 12, 24]) for (let i = 1; i <= 3; i++) {
+        c.put(x0 + i, 12 - i, 'd');
+        c.put(x0 + i, 13 + i, 'd');
+      }
+      c.ellipse(18, 11, 5, 4, 'r', 'n');
+      c.rect(18, 7, 18, 15, 'c');
+      c.ellipse(18, 6, 2, 1, 'c');
+      c.put(17, 6, 'w');
+      c.put(19, 6, 'w');
+      for (const [x, y] of [[16, 4], [15, 3], [20, 4], [21, 3], [12, 10], [13, 11], [24, 10], [23, 11], [12, 13], [24, 13]] as const) c.put(x, y, 'c');
+      for (const [x, y] of [[15, 9], [21, 9], [16, 13], [20, 13]] as const) c.rect(x, y, x, y + 1, 'c');
+      for (const [x, y] of [[6, 9], [27, 14], [9, 16]] as const) {
+        c.rect(x, y, x + 1, y + 1, 'w');
+        c.put(x + 1, y + 1, 'e');
+      }
+    },
+  },
+  {
+    title: 'Beach umbrella',
+    draw: (c) => {
+      c.ellipse(4, 3, 3, 3, 'y', 'o');
+      c.cloud(10, 0, 7);
+      c.cloud(25, 4, 6);
+      c.rect(0, 10, 31, 15, 'b');
+      c.scatter('w', 12, 10, 14, 'b');
+      c.ground(15, 0.6, 'y', 'o');
+      for (let y = 5; y <= 9; y++) {
+        const half = [3, 5, 6, 7, 8][y - 5] as number;
+        for (let x = 18 - half; x <= 18 + half; x++) c.put(x, y, Math.floor((x + 1) / 3) % 2 ? 'r' : 'k');
+      }
+      for (let x = 10; x <= 26; x += 2) c.put(x, 9, 's');
+      c.put(18, 4, 'n');
+      c.rect(18, 10, 18, 19, 'n');
+      for (let x = 4; x <= 10; x++) c.rect(x, 18, x, 20, x % 2 ? 'k' : 'w');
+      c.ellipse(25, 19, 1, 1, 'r');
+      c.put(25, 19, 'w');
+      for (const [x, y] of [[21, 4], [22, 3], [23, 4], [27, 1], [28, 0], [29, 1]] as const) c.put(x, y, 'c');
+      c.scatter('kw', 8, 17, 23, 'yo');
+    },
+  },
+  {
+    title: 'Castle',
+    draw: (c) => {
+      c.cloud(12, 1, 7);
+      c.ground(19, 0.8);
+      c.rect(8, 9, 23, 19, 'e');
+      for (let x = 8; x <= 23; x += 2) c.put(x, 8, 'e');
+      for (const [x0, x1] of [[3, 9], [22, 28]] as const) {
+        c.rect(x0, 6, x1, 19, 'e');
+        c.rect(x1, 6, x1, 19, 'c');
+        c.triangle((x0 + x1) / 2, 2, 5, 4, 'r', 'n');
+        c.rect((x0 + x1) / 2, 0, (x0 + x1) / 2, 1, 'n');
+        c.rect((x0 + x1) / 2 + 1, 0, (x0 + x1) / 2 + 2, 0, 'y');
+        c.rect((x0 + x1) / 2 - 1, 9, (x0 + x1) / 2, 10, 'y');
+      }
+      for (let y = 10; y <= 18; y += 2) for (let x = 9 + (y % 4 === 0 ? 0 : 2); x <= 21; x += 4) c.put(x, y, 'c');
+      for (const x of [11, 19]) {
+        c.rect(x, 10, x + 1, 14, 'p');
+        c.put(x, 12, 'y');
+        c.put(x + 1, 14, 's');
+      }
+      c.rect(14, 13, 17, 19, 'n');
+      c.put(14, 13, 'e');
+      c.put(17, 13, 'e');
+      c.rect(15, 14, 15, 19, 'c');
+      c.rect(0, 21, 31, 22, 'b');
+      c.rect(14, 20, 17, 22, 'n');
+      c.scatter('w', 6, 21, 22, 'b');
+    },
+  },
+  {
+    title: 'Coral reef',
+    draw: (c) => {
+      c.rect(0, 0, 31, 23, 'b');
+      for (let y = 0; y <= 4; y++) for (let x = 0; x < SCENE_WIDTH; x++) if (y < 2 || (y < 4 && (x + y) % 2 === 0) || (y === 4 && x % 4 === 0)) c.put(x, y, 's');
+      c.ground(19, 1.2, 'y', 'o');
+      for (const x0 of [2, 7, 27, 30])
+        for (let y = 8 + (x0 % 5); y <= 21; y++) c.put(x0 + Math.round(Math.sin(y / 2)), y, y % 2 ? 'g' : 'd');
+      c.rect(13, 14, 13, 21, 'k');
+      c.rect(11, 12, 11, 17, 'k');
+      c.rect(15, 11, 15, 17, 'k');
+      c.rect(11, 17, 15, 17, 'k');
+      for (const [x, y] of [[11, 12], [15, 11], [13, 14], [12, 17], [14, 19]] as const) c.put(x, y, 'p');
+      c.ellipse(22, 19, 4, 3, 'p', 'r');
+      c.ellipse(9, 7, 3, 2, 'o', 'r');
+      for (const [x, y] of [[5, 6], [5, 8], [6, 7], [5, 7]] as const) c.put(x, y, 'o');
+      for (let y = 5; y <= 9; y++) if ('or'.includes(c.at(9, y) as string)) c.put(9, y, 'w');
+      c.put(11, 6, 'c');
+      c.ellipse(23, 10, 3, 2, 'y', 'o');
+      for (const [x, y] of [[27, 9], [27, 11], [26, 10], [27, 10]] as const) c.put(x, y, 'y');
+      for (let y = 8; y <= 12; y++) if ('yo'.includes(c.at(24, y) as string)) c.put(24, y, 'c');
+      c.put(21, 9, 'c');
+      for (const [x, y] of [[12, 4], [13, 2], [12, 0], [20, 7], [19, 5]] as const) c.put(x, y, 'w');
+      c.scatter('w', 8, 0, 16, 'bs');
+    },
+  },
+  {
+    title: 'Pumpkin patch',
+    draw: (c) => {
+      c.cloud(2, 2, 8);
+      c.cloud(15, 4, 6);
+      c.ground(14, 0.6);
+      for (let x = 0; x < SCENE_WIDTH; x++) {
+        c.put(x, 11, 'n');
+        c.put(x, 13, 'n');
+        if (x % 4 === 1) c.rect(x, 10, x, 15, 'n');
+      }
+      c.rect(27, 9, 28, 15, 'n');
+      c.ellipse(27, 5, 5, 5, 'o', 'r', 'y');
+      c.scatter('yor', 10, 16, 23, 'gd');
+      for (const [x, y, rx, ry] of [[8, 18, 5, 3], [20, 19, 4, 3], [14, 21, 2, 2], [27, 21, 3, 2]] as const) {
+        c.ellipse(x, y, rx, ry, 'o', 'r', 'y');
+        for (let yy = y - ry + 1; yy <= y + ry - 1; yy++) if (c.at(x, yy) === 'o') c.put(x, yy, 'r');
+        c.rect(x, y - ry - 1, x, y - ry, 'n');
+        c.put(x + 1, y - ry - 1, 'd');
+      }
+      for (const [x, y] of [[14, 10], [15, 10], [15, 9]] as const) c.put(x, y, 'c');
+      c.put(16, 9, 'o');
+    },
+  },
+  {
+    title: 'Steam train',
+    draw: (c) => {
+      c.cloud(19, 1, 8);
+      c.ellipse(6, 16, 10, 6, 'g', 'd');
+      c.ellipse(26, 17, 9, 5, 'g', 'd');
+      c.ground(20, 0);
+      c.rect(0, 19, 31, 19, 'c');
+      for (let x = 0; x < SCENE_WIDTH; x += 3) c.put(x, 20, 'n');
+      c.rect(2, 12, 11, 17, 'r');
+      c.rect(11, 12, 11, 17, 'n');
+      c.rect(1, 13, 1, 16, 'c');
+      c.rect(8, 9, 12, 17, 'b');
+      c.rect(7, 8, 13, 8, 'c');
+      c.rect(9, 10, 11, 12, 'w');
+      c.rect(3, 9, 4, 11, 'c');
+      c.rect(2, 8, 5, 8, 'c');
+      c.ellipse(5, 5, 2, 2, 'w', 'e');
+      c.ellipse(9, 3, 3, 2, 'w', 'e');
+      c.ellipse(14, 1, 3, 1, 'w', 'e');
+      c.rect(12, 16, 14, 16, 'c');
+      c.rect(14, 12, 21, 17, 'y');
+      c.rect(21, 12, 21, 17, 'o');
+      c.rect(14, 11, 21, 11, 'o');
+      c.rect(23, 12, 31, 17, 'b');
+      c.rect(23, 11, 31, 11, 'c');
+      for (const x of [15, 18, 24, 27, 30]) c.rect(x, 13, x + 1, 14, 'w');
+      for (const x of [3, 6, 10, 16, 20, 25, 29]) {
+        c.ellipse(x, 18, 1.5, 1.5, 'c');
+        c.put(x, 18, 'e');
+      }
+    },
+  },
+  {
+    title: 'Butterfly on a sunflower',
+    draw: (c) => {
+      c.ground(20, 1);
+      c.rect(8, 12, 9, 23, 'd');
+      c.ellipse(5, 16, 3, 1, 'g', 'd');
+      c.ellipse(12, 18, 3, 1, 'g', 'd');
+      for (let k = 0; k < 8; k++) c.put(Math.round(8 + 7 * Math.cos((k * Math.PI) / 4)), Math.round(8 + 7 * Math.sin((k * Math.PI) / 4)), 'y');
+      c.ellipse(8, 8, 6, 6, 'y', 'o');
+      c.ellipse(8, 8, 3, 3, 'n', 'c');
+      c.ellipse(19, 7, 4, 3, 'p', 'b');
+      c.ellipse(27, 7, 4, 3, 'p', 'b');
+      c.ellipse(20, 12, 3, 2, 'k', 'p');
+      c.ellipse(26, 12, 3, 2, 'k', 'p');
+      for (const [x, y] of [[18, 6], [28, 6], [19, 12], [27, 12]] as const) c.put(x, y, 'w');
+      c.rect(23, 6, 23, 13, 'c');
+      for (const [x, y] of [[22, 5], [21, 4], [24, 5], [25, 4]] as const) c.put(x, y, 'c');
+      c.scatter('kwp', 14, 21, 23, 'gd');
+    },
+  },
+  {
+    title: 'Mountain lake at sunset',
+    draw: (c) => {
+      for (let y = 0; y <= 14; y++)
+        for (let x = 0; x < SCENE_WIDTH; x++) {
+          const odd = (x + y) % 2 === 0;
+          c.put(x, y, y < 3 ? 'p' : y < 5 ? (odd ? 'p' : 'k') : y < 8 ? 'k' : y < 10 ? (odd ? 'k' : 'o') : 'o');
+        }
+      c.ellipse(16, 11, 3, 3, 'y', 'o');
+      c.triangle(8, 2, 14, 11, 'n', 'c');
+      c.triangle(24, 4, 14, 10, 'e', 'c');
+      for (let y = 2; y <= 6; y++)
+        for (let x = 0; x < SCENE_WIDTH; x++) {
+          const snow = (x < 16 && y <= 5) || (x >= 16 && y >= 4);
+          const ch = c.at(x, y);
+          if (snow && (ch === 'n' || ch === 'e')) c.put(x, y, 'w');
+          if (snow && ch === 'c' && x < 16) c.put(x, y, 'e');
+        }
+      c.rect(0, 14, 31, 14, 'd');
+      for (const x of [2, 6, 21, 29]) c.triangle(x, 10, 13, 1, 'd');
+      c.rect(0, 15, 31, 23, 'b');
+      for (let y = 15; y <= 23; y++)
+        for (let x = 0; x < SCENE_WIDTH; x++) {
+          const src = c.at(x, 29 - y) as string;
+          if ('ncwedy'.includes(src) && (y < 20 || (x + y) % 2 === 0)) c.put(x, y, src);
+        }
+      c.scatter('s', 10, 16, 23, 'b');
+    },
+  },
 ];
 
 /**
