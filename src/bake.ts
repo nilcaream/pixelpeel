@@ -183,6 +183,10 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
       : null;
     return { v, level, picture, columns };
   };
+  if (scene.deal) {
+    const { level } = tryDeal(scene.deal.sceneSeed, scene.deal.buckets, scene.deal.seed, scene.deal.strength);
+    if (level) return level;
+  }
   for (let sceneSeed = 1; sceneSeed <= SCENE_SEEDS; sceneSeed++) {
     for (const buckets of BUCKETS) {
       let strength = START_STRENGTH;

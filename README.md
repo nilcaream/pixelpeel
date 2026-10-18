@@ -57,6 +57,17 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
   | hard | under 25% | 2–3, and depth 1 wins at most 30% | under 20% | 2–3, and depth 1 wins at most 25% |
   | very hard | under 8% | 3–4, and depth 1 and 2 win at most 15% and 25% | under 6% | 3–4, and depth 1 and 2 win at most 10% and 20% |
 
+  | band | levels 41 on: casual players win | depth |
+  |---|---|---|
+  | easy | 30–55% | 1 |
+  | medium | 12–35% | 2–3, and depth 1 wins at most 40% |
+  | hard | under 12% | 2–3, and depth 1 wins at most 20% |
+  | very hard | under 4% | 3–4, and depth 1 and 2 win at most 10% and 15% |
+
+  A scene may name the deal it is baked from (`deal` in `src/scenes.ts`), chosen from a sweep of the
+  picture's deals for its band and for a game with no trivial first phase; the bake tries it first.
+  Pictures drawn but not yet levels wait in `src/portfolio.ts`.
+
   Every level has a luck of at most 5%, and a solver proves it can be won. When no deal of a picture fits
   its band, the level takes the closest deal and records what it misses (`misses` in `src/levels.json`): an
   outlier now and then is accepted on the way to a hundred levels.

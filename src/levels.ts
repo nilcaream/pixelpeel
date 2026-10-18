@@ -56,6 +56,9 @@ export interface BandRule {
  *
  * Block 4: casual ranges down by another 0.1 (easy from 0.4, hard under 0.2, very hard under 0.06);
  * medium may need depth 3, and every shallow cap is lower again.
+ *
+ * Block 5: casual ranges down by about 0.1 again (easy from 0.3, medium under 0.35, hard under 0.12,
+ * very hard under 0.04), and the shallow caps lower once more.
  */
 export const BLOCKS: readonly Record<Band, BandRule>[] = [
   {
@@ -81,6 +84,12 @@ export const BLOCKS: readonly Record<Band, BandRule>[] = [
     medium: { casual: [0.2, 0.45], depth: [2, 3], shallow: [0.5] },
     hard: { casual: [0, 0.2], depth: [2, 3], shallow: [0.25] },
     'very hard': { casual: [0, 0.06], depth: [3, 4], shallow: [0.1, 0.2], wins: 0.85 },
+  },
+  {
+    easy: { casual: [0.3, 0.55], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.12, 0.35], depth: [2, 3], shallow: [0.4] },
+    hard: { casual: [0, 0.12], depth: [2, 3], shallow: [0.2] },
+    'very hard': { casual: [0, 0.04], depth: [3, 4], shallow: [0.1, 0.15], wins: 0.85 },
   },
 ];
 

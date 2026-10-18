@@ -31,7 +31,9 @@ describe('the bands', () => {
     expect(ruleFor(10)).toBe(BLOCKS[0]?.['very hard']);
     expect(ruleFor(11)).toBe(BLOCKS[1]?.easy);
     expect(ruleFor(20)).toBe(BLOCKS[1]?.['very hard']);
-    expect(ruleFor(31)).toBe(BLOCKS[BLOCKS.length - 1]?.easy);
+    expect(ruleFor(41)).toBe(BLOCKS[4]?.easy);
+    expect(ruleFor(60)).toBe(BLOCKS[4]?.['very hard']);
+    expect(ruleFor(10 * BLOCKS.length + 1)).toBe(BLOCKS[BLOCKS.length - 1]?.easy);
   });
 
   it('make each block a step harder than the one before, band by band', () => {
@@ -87,6 +89,11 @@ describe('the scene levels', () => {
     expect(deal.columns).toEqual(l.columns);
     expect(deal.knobs).toEqual(l.knobs);
     expect(l.id).toBe(levelId(l.rows, l.columns, l.structure.buckets));
+  });
+
+  it.each(each)('level %i is dealt as its scene names, when it names a deal', (_, l) => {
+    const named = SCENES[l.number - 1]?.deal;
+    if (named) expect({ sceneSeed: l.sceneSeed, buckets: l.structure.buckets, seed: l.seed, strength: l.strength }).toEqual(named);
   });
 
   it.each(each)('level %i can be won: its winning order replays to a win', (_, l) => {
