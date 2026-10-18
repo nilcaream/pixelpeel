@@ -1,16 +1,19 @@
 /*
- * Pixelify Sans, served with the game so it works offline. It sits in public/fonts/ beside its licence
- * (SIL Open Font License 1.1, public/fonts/OFL.txt), so every published copy of the font carries it.
+ * Press Start 2P, served with the game so it works offline. It sits in public/fonts/ beside its licence
+ * (SIL Open Font License 1.1, public/fonts/OFL.txt), so every published copy of the font carries it. Its
+ * name is reserved, so it ships exactly as released: no subset, no other format.
+ * It has one weight and every glyph is 1 em wide, so a line of n characters at s px is n × s px wide; the
+ * sizes below are chosen by that for a 360 px phone.
  */
 @font-face {
-  font-family: 'Pixelify Sans';
-  src: url('/fonts/PixelifySans.ttf') format('truetype');
-  font-weight: 400 700;
+  font-family: 'Press Start 2P';
+  src: url('/fonts/PressStart2P-Regular.ttf') format('truetype');
+  font-weight: 400;
   font-display: swap;
 }
 
 :root {
-  --pixel-font: 'Pixelify Sans', system-ui, sans-serif;
+  --pixel-font: 'Press Start 2P', system-ui, sans-serif;
   --header-h: 56px;
   --footer-h: 52px;
   --page: #1c1c22;
@@ -25,6 +28,8 @@ body {
   background: var(--page);
   color: var(--ink);
   font: 16px/1.4 system-ui, sans-serif;
+  /* The pixel font has one weight: a bold of it would be smeared by the browser. */
+  font-synthesis: none;
   overflow: hidden;
   touch-action: manipulation;
   user-select: none;
@@ -70,11 +75,11 @@ body {
   white-space: nowrap;
 }
 
+/* "Level 10" is 8 × 16 = 128 px; the middle of the bar is 264 px at 360. */
 #level-number {
   font-family: var(--pixel-font);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: 16px;
+  margin-bottom: 6px;
 }
 
 #level-name {
@@ -92,10 +97,9 @@ body {
   line-height: var(--footer-h);
   text-align: center;
   white-space: nowrap;
+  /* "Pixel Peel" is 10 × 24 = 240 px. */
   font-family: var(--pixel-font);
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 24px;
   text-shadow: 0 3px 0 #0c0c10;
   pointer-events: none;
 }
@@ -108,8 +112,7 @@ body {
 .menu-panel button,
 #level-chooser {
   font-family: var(--pixel-font);
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 14px;
   color: var(--ink);
   background: #2a2a33;
   border: 0;
@@ -142,8 +145,10 @@ body {
     #2a2a33;
 }
 
+/* The dev chooser keeps the system font: its lines ("10 · Night village · VH · d3 · 85%") would be 34 em wide. */
 #level-chooser {
   width: 100%;
+  font-family: system-ui, sans-serif;
   font-size: 15px;
   padding: 8px 10px;
 }
@@ -196,9 +201,13 @@ body {
   justify-content: space-between;
 }
 
+/*
+ * The menu is 296 px inside on a 360 px phone. Title: logo 40 + gap 10 + "Pixel Peel" 10 × 16 + close 36
+ * = 246 px; "Clear progress" 14 × 14 = 196 px; "Pixel Peel on GitHub" 20 × 12 = 240 px.
+ */
 .menu-panel h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -214,10 +223,8 @@ body {
 .menu-panel h2 {
   margin: 0;
   font-family: var(--pixel-font);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
   color: #9a9aa6;
 }
 
@@ -225,7 +232,7 @@ body {
   width: 36px;
   height: 36px;
   padding: 0 0 3px;
-  font-size: 20px;
+  font-size: 16px;
 }
 
 #menu-levels {
@@ -236,9 +243,10 @@ body {
   padding: 3px;
 }
 
+/* A square is 48 px at 360; "10" is 32 px. */
 #menu-levels button {
   aspect-ratio: 1;
-  font-size: 20px;
+  font-size: 16px;
 }
 
 #menu-levels button[aria-current='true'] {
@@ -262,7 +270,7 @@ body {
   align-items: center;
   gap: 10px;
   font-family: var(--pixel-font);
-  font-size: 17px;
+  font-size: 12px;
 }
 
 #menu-dev[hidden] {
@@ -296,7 +304,8 @@ body {
 
 #menu-github {
   font-family: var(--pixel-font);
-  font-size: 16px;
+  font-size: 12px;
+  line-height: 1.6;
   color: #4fc3f7;
 }
 
@@ -340,27 +349,26 @@ body {
   display: none;
 }
 
+/* The panel is 256 px inside at 360: "Peeled!" is 7 × 32 = 224 px. */
 #end p {
-  margin: 0 0 16px;
-  font-size: 40px;
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: 0.04em;
+  margin: 0 0 20px;
+  font-size: 32px;
+  line-height: 1.2;
   color: var(--end-colour);
   text-shadow: 0 4px 0 #0c0c10;
 }
 
+/* "All 10 levels peeled!" wraps after "levels": 13 × 18 = 234 px. */
 #end[data-state='done'] p {
-  font-size: 30px;
+  font-size: 18px;
+  line-height: 1.6;
   margin: 0;
 }
 
 #end button {
   font-family: var(--pixel-font);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 6px 26px 8px;
+  font-size: 18px;
+  padding: 10px 24px 14px;
   border: 0;
   border-radius: 0;
   background: var(--end-colour);

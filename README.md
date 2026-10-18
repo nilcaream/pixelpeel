@@ -75,5 +75,6 @@ repository.
 
 ## Licence
 
-MIT, see `LICENSE`. The font, Pixelify Sans, is under the SIL Open Font License 1.1, see
+MIT, see `LICENSE`. The font, Press Start 2P by The Press Start 2P Project Authors (Reserved Font Name "Press Start 2P"), is
+under the SIL Open Font License 1.1 and ships unmodified, see
 `public/fonts/OFL.txt`, which is published beside the font.
