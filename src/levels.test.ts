@@ -67,6 +67,8 @@ describe('the bands', () => {
     expect(missBy(hard, { fits: false, why: 'harder', casualWins: 20, thinkers: [0.1, 0.3, 0.6] })).toEqual({ by: 0.3, what: 'depth-3 thinker wins 0.6, under 0.9' });
     expect(missBy(ruleFor(30), { fits: false, why: 'easier', casualWins: 5, thinkers: [0.1, 0.9] })).toEqual({ by: 0.65, what: 'depth-2 thinker wins 0.9, over 0.25' });
     expect(missBy(hard, { fits: false, why: 'easier', casualWins: 80, thinkers: [] })).toBeNull();
+    // A deal ruled out on luck is never the closest: the level's luck must stay within MAX_LUCK.
+    expect(missBy(hard, { fits: false, why: 'luck', casualWins: 20, thinkers: [0.1, 0.9] })).toBeNull();
   });
 });
 
