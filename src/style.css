@@ -343,6 +343,13 @@ body {
   color: #4fc3f7;
 }
 
+#menu-version {
+  margin: 0;
+  font-family: var(--pixel-font);
+  font-size: 10px;
+  color: #9a9aa6;
+}
+
 /*
  * The end of a level, drawn as pixel art: a square panel whose light border skips its corner pixels, a
  * hard shadow under it, and the word and the button in the pixel font, coloured by how the level ended.
