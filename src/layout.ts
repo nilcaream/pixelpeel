@@ -41,6 +41,26 @@ export interface Shape {
   visible: number;
 }
 
+/** Where a box lies on the page, as getBoundingClientRect gives it. */
+export interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * A point on the page (a tap's clientX and clientY) in the coordinates the canvas was laid out and drawn in,
+ * `size` wide and high: the canvas's box on the page can start below the window's top and need not be that
+ * size, and a tap must land where the pot is seen.
+ */
+export function toCanvas(x: number, y: number, box: Box, size: { width: number; height: number }): { x: number; y: number } {
+  return {
+    x: box.width > 0 ? ((x - box.left) * size.width) / box.width : 0,
+    y: box.height > 0 ? ((y - box.top) * size.height) / box.height : 0,
+  };
+}
+
 /** The layout for a window of this size; a window too small to hold anything gets sizes of zero, never below. */
 export function measure(width: number, height: number, shape: Shape): Layout {
   const fw = shape.width + 2;
