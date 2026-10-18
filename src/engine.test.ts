@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AT_BUCKET, EMPTY, createState, findTarget, pick, status, tick, type Pot, type State } from './engine.ts';
+import { AT_BUCKET, EMPTY, createState, entryCell, findTarget, pick, status, tick, type Dot, type Pot, type State } from './engine.ts';
 import { parsePicture } from './picture.ts';
 
 const COLOURS = { A: '#ff0000', B: '#ffff00' };
@@ -88,6 +88,45 @@ describe('buckets', () => {
     expect([...new Set(shown)]).toEqual([3, 2, 1, 0]);
     expect(freedWhileOut).toBe(false);
     expect(s.buckets[0]).toBeNull();
+  });
+
+  it('frees a bucket at zero at once when a bucket of its colour is there, and sends its dots home to that one', () => {
+    let s = pick(pick(stateOf(['AAAA'], [[{ colour: A, count: 1 }, { colour: A, count: 3 }]], 2), 0), 0);
+    while (s.buckets[0] && s.buckets[0].pickedUp === 0) s = tick(s);
+    expect(s.buckets[0]).toBeNull();
+    const dot = s.dots.find((d) => d.carrying);
+    expect(dot?.bucket).toBe(1);
+    expect(dot?.route.at(-2)).toBe(entryCell(s, 1));
+  });
+
+  it('turns a dot that was already on its way home towards the bucket it is handed to', () => {
+    // Red sits on top behind yellow, so the way to it and back is long: the first dot is still walking
+    // home when the second lifts the bucket's last pixel.
+    let s = pick(stateOf(['AAA', 'BBB', 'BBB'], [[{ colour: A, count: 2 }, { colour: A, count: 1 }]], 2), 0);
+    while ((s.buckets[0]?.claimed ?? 0) < 2) s = tick(s);
+    s = pick(s, 0);
+    while (s.buckets[0]) s = tick(s);
+    const handed = s.dots.filter((d) => d.carrying && d.bucket === 1 && d.route.length - d.pos > 3);
+    expect(handed.length).toBe(2);
+    for (const d of handed) expect(d.route.at(-2)).toBe(entryCell(s, 1));
+  });
+
+  it('keeps a bucket at zero until its dots are home when no other bucket has its colour', () => {
+    let s = pick(pick(stateOf(['AABB'], [[{ colour: A, count: 1 }, { colour: B, count: 2 }]], 2), 0), 0);
+    while (s.buckets[0] && s.buckets[0].pickedUp === 0) s = tick(s);
+    expect(s.buckets[0]).toMatchObject({ colour: A, pickedUp: 1 });
+    expect(s.dots.find((d) => d.colour === A)?.bucket).toBe(0);
+  });
+});
+
+describe('the way home', () => {
+  it('takes the shortest way on the picture as it is now, through squares emptied while the dot was out', () => {
+    // The yellow pixel under the red one sends the dot round the side; it is lifted while the dot is out.
+    let s = tick(pick(stateOf(['A', 'B'], [[{ colour: A, count: 1 }]]), 0));
+    s.cells[1] = EMPTY;
+    while (!s.dots[0]?.carrying) s = tick(s);
+    const dot = s.dots[0] as Dot;
+    expect(dot.route.slice(dot.pos)).toEqual([4, 7, 10, AT_BUCKET]);
   });
 });
 

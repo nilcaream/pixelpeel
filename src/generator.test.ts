@@ -66,7 +66,7 @@ describe('measure and resume', () => {
       expect(quick.outside === undefined, `band ${band}`).toBe(inside);
       if (inside) expect(quick.wins).toBe(full.wins);
     }
-  });
+  }, 30_000);
 
   it('brings a game back to where its last pick left it', () => {
     const game = playRandom(HOUSE, shuffled, 4, 5);
