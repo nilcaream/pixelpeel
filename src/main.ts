@@ -1,15 +1,17 @@
 // The page: turns a tap on a column into a pick, which the rules (rules.ts) settle at once, and draws the
 // scene (scene.ts) that shows it, ticking at a fixed rate. A pick waits for a bucket that is free on
-// screen. The player is always on the first level not yet peeled; every pick is saved, so a reload
-// replays the picks and goes on exactly where it was left.
+// screen. The player goes on to the next level after each one peeled, and can play any peeled level
+// again from the menu; every pick is saved, so a reload replays the picks and goes on exactly where it
+// was left.
 
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
+import { DEV_KEY, isDevHost } from './dev.ts';
 import { replay } from './generator.ts';
 import { measure, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
-import { poolPicture, type Picture } from './picture.ts';
-import { browserStore, loadProgress, saveProgress, type Progress } from './progress.ts';
+import { CLEAR_CELL, poolPicture, type Picture } from './picture.ts';
+import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
 import './style.css';
@@ -19,13 +21,22 @@ const STEPS_PER_SECOND = 10;
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 
 const BAND_LABEL: Record<Band, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard', 'very hard': 'Very hard' };
+const BAND_SHORT: Record<Band, string> = { easy: 'E', medium: 'M', hard: 'H', 'very hard': 'VH' };
 
 const LEVELS = levelsFile as unknown as Level[];
 
+/** The level whose picture is the app's logo and icon (scripts/make-icons.py draws the icons from it). */
+const LOGO_TITLE = 'Cactus';
+
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-const hud = document.getElementById('hud') as HTMLDivElement;
 const label = document.getElementById('level-label') as HTMLSpanElement;
+const chooser = document.getElementById('level-chooser') as HTMLSelectElement;
+const menu = document.getElementById('menu') as HTMLDivElement;
+const menuButton = document.getElementById('menu-button') as HTMLButtonElement;
+const menuLevels = document.getElementById('menu-levels') as HTMLDivElement;
+const devOption = document.getElementById('menu-dev') as HTMLLabelElement;
+const devToggle = document.getElementById('menu-dev-toggle') as HTMLInputElement;
 const end = document.getElementById('end') as HTMLDivElement;
 const endText = document.getElementById('end-text') as HTMLParagraphElement;
 const endButton = document.getElementById('end-button') as HTMLButtonElement;
@@ -60,15 +71,13 @@ function open(): void {
   progress = { ...progress, run: { id: level.id, picks } };
   saveProgress(store, progress);
   resize();
-  afterOpen();
+  chooser.value = String(level.number);
 }
-
-/** What the dev tools do each time a level opens. */
-let afterOpen = (): void => {};
 
 /** Moves the progress to a level and opens it with nothing in play. */
 function goTo(n: number): void {
-  progress = { level: Math.max(1, Math.min(n, LEVELS.length + 1)), run: null };
+  const to = Math.max(1, Math.min(n, LEVELS.length + 1));
+  progress = { level: to, reached: Math.max(progress.reached, to), run: null };
   saveProgress(store, progress);
   open();
 }
@@ -248,7 +257,7 @@ function frame(now: number): void {
     if (s !== 'playing' && idle(scene) && end.hidden) {
       if (s === 'won') {
         // The level is peeled: the progress moves on now, so a reload opens the next level.
-        progress = { level: level.number + 1, run: null };
+        progress = peeled(progress);
         saveProgress(store, progress);
       }
       endText.textContent = s === 'won' ? 'Peeled!' : 'Stuck';
@@ -261,29 +270,95 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
-if (import.meta.env.DEV) {
-  // Tools for trying levels while the game is worked on; the production build leaves all of this out.
-  const chooser = document.createElement('select');
-  for (const l of LEVELS) {
-    const option = document.createElement('option');
-    option.value = String(l.number);
-    option.textContent = `${l.number} · ${BAND_LABEL[l.band]} · ${l.title} · depth ${l.depth} · casual ${Math.round((l.casualWins / CASUAL_GAMES) * 100)}%`;
-    chooser.append(option);
+// The menu, open from every screen: the levels peeled so far, clearing the progress, the source, and on
+// the dev host the dev mode.
+function showMenu(shown: boolean): void {
+  if (shown) {
+    menuLevels.replaceChildren(
+      ...playable(progress, LEVELS.length).map((n) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = String(n);
+        b.setAttribute('aria-label', `Level ${n}`);
+        if (n === level?.number) b.setAttribute('aria-current', 'true');
+        b.addEventListener('click', () => {
+          showMenu(false);
+          goTo(n);
+        });
+        return b;
+      }),
+    );
   }
-  chooser.addEventListener('change', () => goTo(Number(chooser.value)));
-  const skip = document.createElement('button');
-  skip.type = 'button';
-  skip.textContent = 'Skip ›';
-  skip.addEventListener('click', () => goTo((level?.number ?? LEVELS.length) + 1));
-  label.hidden = true;
-  hud.append(chooser, skip);
-  afterOpen = () => {
-    chooser.value = String(Math.min(progress.level, LEVELS.length));
-  };
+  menu.hidden = !shown;
+  menuButton.setAttribute('aria-expanded', String(shown));
+}
+
+// The app's logo is the Cactus level, drawn square for square from its rows, as the icons are.
+const logoLevel = LEVELS.find((l) => l.title === LOGO_TITLE);
+if (logoLevel) {
+  const logo = document.getElementById('menu-logo') as HTMLCanvasElement;
+  const logoPicture = poolPicture(logoLevel.rows);
+  logo.width = logoPicture.width;
+  logo.height = logoPicture.height;
+  const lctx = logo.getContext('2d') as CanvasRenderingContext2D;
+  logoPicture.cells.forEach((c, i) => {
+    if (c === CLEAR_CELL) return;
+    lctx.fillStyle = logoPicture.palette[c] as string;
+    lctx.fillRect(i % logoPicture.width, Math.floor(i / logoPicture.width), 1, 1);
+  });
+}
+
+menuButton.addEventListener('click', () => showMenu(menu.hidden === true));
+(document.getElementById('menu-close') as HTMLButtonElement).addEventListener('click', () => showMenu(false));
+menu.addEventListener('click', (e) => {
+  if (e.target === menu) showMenu(false);
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') showMenu(false);
+});
+(document.getElementById('menu-clear') as HTMLButtonElement).addEventListener('click', () => {
+  if (!window.confirm('Clear your progress and start again from level 1?')) return;
+  progress = FRESH;
+  saveProgress(store, progress);
+  showMenu(false);
+  open();
+});
+
+// Dev mode shows a chooser of every level in the bar, with what the bake measured for each.
+for (const l of LEVELS) {
+  const option = document.createElement('option');
+  option.value = String(l.number);
+  // Short enough to read whole in the bar of a 360 px phone: number, title, band, depth, casual wins.
+  option.textContent = `${l.number} · ${l.title} · ${BAND_SHORT[l.band]} · d${l.depth} · ${Math.round((l.casualWins / CASUAL_GAMES) * 100)}%`;
+  chooser.append(option);
+}
+chooser.addEventListener('change', () => goTo(Number(chooser.value)));
+
+function setDev(on: boolean): void {
+  chooser.hidden = !on;
+  label.hidden = on;
+  devToggle.checked = on;
+  try {
+    store?.setItem(DEV_KEY, on ? '1' : '0');
+  } catch {
+    // Storage refused: dev mode lasts until the page is left.
+  }
+}
+
+if (isDevHost(location.hostname)) {
+  devOption.hidden = false;
+  devToggle.addEventListener('change', () => setDev(devToggle.checked));
+  let on = false;
+  try {
+    on = store?.getItem(DEV_KEY) === '1';
+  } catch {
+    // Storage refused: dev mode starts off.
+  }
+  setDev(on);
   // ?level=N opens level N, fresh, once; a reload with the same address then resumes it as usual.
   const asked = Number(new URLSearchParams(location.search).get('level'));
   if (Number.isInteger(asked) && asked >= 1 && asked <= LEVELS.length && asked !== progress.level) {
-    progress = { level: asked, run: null };
+    progress = { level: asked, reached: Math.max(progress.reached, asked), run: null };
   }
   open();
   // A hook for test rigs: the level, the rules' board, the scene and the moves.
