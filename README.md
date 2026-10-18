@@ -14,18 +14,40 @@ one pixel at a time, colour by colour. You choose the order.
 - The number on a bucket counts the pixels it still has to collect. When it reaches 0 and the last dot is
   home, the bucket is free again.
 - A pixel that other pixels surround can't be reached. If every bucket holds a colour that no dot can reach,
-  you are stuck: restart and try another order.
-- Peel the whole picture to win. Every level can be won.
+  you are stuck: retry and try another order.
+- Peel the whole picture to win and go on to the next level. Every level can be won.
 
-The game is deterministic: the same picks at the same moments always play out the same way.
+The game is deterministic: the same picks at the same moments always play out the same way. Your level and
+every pick you make are kept in the browser, so a reload goes on exactly where you left off.
+
+## Levels
+
+- Levels come in waves: easy, medium, hard, with a very hard one every tenth level. Every ten levels the
+  structure grows: first the picture's size (20 → 24 squares), then its colours (4 → 5). Levels 21–30
+  bring the pictures of levels 1–10 back, larger and with more colours.
+- Difficulty is measured: each level is played by 200 random players, who pick a random column whenever a
+  bucket is free. The share that wins sets the band: easy ≥ 90%, medium 65–90%, hard 35–65%, very hard
+  10–35%.
+- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, a few minutes on all cores). For each
+  level it converts the source picture into the colour pool (`src/convert.ts`, `src/palette.ts`), deals pots
+  that are known to win, and perturbs them (pots surface early, the order is turned round, pots merge)
+  until the measured share lands in the band. Each level keeps its source and licence, its seed and knobs,
+  the measured share and one winning order, which a test replays. `npm run bake -- --check` bakes again
+  and fails if the committed file differs. `BACKGROUND=colour npm run bake` fills each picture's clear
+  background with a colour to peel.
+- The pictures are Kenney's "Animal Pack Redux", CC0 (https://opengameart.org/content/animal-pack-redux),
+  in `levels/sources/` with the pack's licence. The candidates are listed in `scripts/sources.ts`, and the
+  bake gives the pictures that can be made hardest to the hardest levels.
+- In `npm run dev` a level list, a Skip button and `?level=N` are there for trying levels; the production
+  build leaves them out.
 
 ## Development
 
 - `npm ci`, then `npm run dev` (dev server on 127.0.0.1), `npm test` (Vitest), `npm run typecheck`,
   `npm run build` (type check, then `vite build` into `dist/`), `npm run preview`.
 - The rules are in `src/engine.ts`, and they are pure: `pick()` and `tick()` take a state and return the
-  next one. `src/generator.ts` deals a level's pots so that a winning plan always exists. `src/main.ts`
-  draws the state on a canvas.
+  next one. `src/generator.ts` deals, perturbs and measures a level's pots. `src/main.ts` draws the state
+  on a canvas, and `src/progress.ts` keeps the player's progress.
 - The icons are made from the first level's picture: `python3 -I scripts/make-icons.py` (Pillow).
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
   (`.github/workflows/pages.yml`). The site is meant to sit at a domain root, so Vite's `base` is `/`.
