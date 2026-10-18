@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOOTER_HEIGHT, HEADER_HEIGHT, measure } from './layout.ts';
+import { FOOTER_HEIGHT, HEADER_HEIGHT, measure, nameFontSize } from './layout.ts';
 
 const SHAPE = { width: 32, height: 24, buckets: 3, columns: 4, visible: 3 };
 
@@ -33,5 +33,27 @@ describe('the layout', () => {
         expect(size, `height ${height}`).toBeGreaterThanOrEqual(0);
       }
     }
+  });
+});
+
+describe("the level name's size", () => {
+  it('stays at 12 px when the name fits, as every name up to 27 letters does at 360', () => {
+    expect(nameFontSize(360, 'Mountain lake at sunset'.length)).toBe(12);
+    expect(nameFontSize(360, 27)).toBe(12);
+  });
+
+  it('shrinks a longer name to whole pixels so it fits between the gutters', () => {
+    const chars = 'Space station over a ringed planet'.length;
+    for (const width of [360, 390, 412, 430]) {
+      const size = nameFontSize(width, chars);
+      expect(size, `width ${width}`).toBe(Math.floor(size));
+      expect(size * chars, `width ${width}`).toBeLessThanOrEqual(width - 32);
+    }
+    expect(nameFontSize(360, chars)).toBe(9);
+  });
+
+  it('is never below zero, for a page narrower than its gutters or an empty name', () => {
+    expect(nameFontSize(10, 5)).toBe(0);
+    expect(nameFontSize(360, 0)).toBe(12);
   });
 });

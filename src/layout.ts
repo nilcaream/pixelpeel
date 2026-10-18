@@ -2,7 +2,18 @@
 // between the header and the footer, and is centred there on a wide or a tall screen.
 
 /** The height kept free at the top for the menu button and the level's three lines (--header-h in src/style.css). */
-export const HEADER_HEIGHT = 76;
+export const HEADER_HEIGHT = 88;
+
+/** The level's name is in the pixel font, whose letters are all 1 em wide, at 12 px or as wide as the page allows. */
+const NAME_SIZE = 12;
+
+/** The page's side gutter round the level's name (#hud's padding in src/style.css). */
+const NAME_GUTTER = 16;
+
+/** The level name's font size in whole pixels, so a name of `chars` letters fits a page `width` wide. */
+export function nameFontSize(width: number, chars: number): number {
+  return Math.max(0, Math.min(NAME_SIZE, Math.floor((width - 2 * NAME_GUTTER) / Math.max(1, chars))));
+}
 
 /** The height kept free at the bottom for the name of the game (--footer-h in src/style.css). */
 export const FOOTER_HEIGHT = 52;
