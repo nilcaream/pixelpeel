@@ -4,7 +4,7 @@
 
 import { CLEAR, POOL } from './palette.ts';
 
-/** The cell value of a clear square; the same value the engine gives a square whose pixel is gone. */
+/** The cell value of a clear square; the same value the rules give a square whose pixel is gone. */
 export const CLEAR_CELL = -1;
 
 export interface Picture {

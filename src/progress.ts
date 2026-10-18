@@ -1,15 +1,13 @@
 // What the browser keeps between visits: the level the player has reached, and the picks of the level
-// in play, saved after every pick. A deterministic engine makes the picks enough: replaying them at
-// their ticks brings the game back to exactly where it was left. Storage may be missing or refuse
-// (a private window, blocked site data); then the game plays on without saving.
-
-import type { PlannedPick } from './generator.ts';
+// in play, saved after every pick. The rules depend on nothing but the order of the picks, so the
+// columns picked, in turn, bring the game back to exactly where it was left. Storage may be missing or
+// refuse (a private window, blocked site data); then the game plays on without saving.
 
 export interface Progress {
   /** The level the player is on: the first one not yet peeled, counting from 1. */
   level: number;
-  /** The level in play, by its id, and the picks made in it so far. */
-  run: { id: string; picks: PlannedPick[] } | null;
+  /** The level in play, by its id, and the columns picked in it so far. */
+  run: { id: string; picks: number[] } | null;
 }
 
 export const STORAGE_KEY = 'pixelpeel.progress';
@@ -18,9 +16,8 @@ type Store = Pick<Storage, 'getItem' | 'setItem'>;
 
 const FRESH: Progress = { level: 1, run: null };
 
-function isPick(p: unknown): p is PlannedPick {
-  const q = p as PlannedPick;
-  return typeof q === 'object' && q !== null && Number.isInteger(q.tick) && Number.isInteger(q.column);
+function isPick(p: unknown): p is number {
+  return Number.isInteger(p) && (p as number) >= 0;
 }
 
 export function loadProgress(store: Store | null): Progress {

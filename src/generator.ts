@@ -1,20 +1,19 @@
-// Deals a level's pots and measures how forgiving the deal is.
+// Deals a level's pots and measures how forgiving the deal is, on the rules' logical model.
 //
-// The generator plays the real rules forward: whenever a bucket is free, it makes the next pot from a
-// colour that has pixels which are reachable now and not yet owed to a pot in a bucket, never bigger
-// than that count. Pixels of a colour leave the picture only through pots of that colour, and the
-// reachable pixels only grow, so no bucket can wait for ever. Dealt in that order to the bottoms of the
-// columns, each pot has only earlier pots above it, and the plan (which column at which tick) replays
-// the same game.
+// The generator plays the rules forward: it makes the next pot from a colour that has pixels reachable
+// now, never bigger than that count, so every pot lifts all its pixels the moment it is picked. Pixels
+// of a colour leave the picture only through pots of that colour, and the reachable pixels only grow,
+// so the picture always empties. Dealt in that order to the bottoms of the columns, each pot has only
+// earlier pots above it, and the plan (which column, in turn) replays the same game.
 //
 // Such a deal is almost never lost, so a level is made harder by perturbing it: pots may surface
 // earlier than their turn (a pot whose colour is still shut in holds its bucket until the colour is
 // reached), and pots of one colour may be merged into one big pot. A perturbed deal has no plan any
-// more; whether it can still be won, and how often, is measured by random play.
+// more; whether it can still be won, and how often, is measured by playing it.
 
-import { createState, entryCell, pick, squareOf, status, tick, EMPTY, type Pot, type State } from './engine.ts';
 import type { Picture } from './picture.ts';
 import { between, seededRng, type Rng } from './rng.ts';
+import { createBoard, pick, reachable, status, type Board, type Pot } from './rules.ts';
 
 export interface DealOptions {
   buckets: number;
@@ -24,73 +23,26 @@ export interface DealOptions {
   potMax: number;
 }
 
-export interface PlannedPick {
-  tick: number;
-  column: number;
-}
-
 export interface Deal {
   columns: Pot[][];
-  /** A winning game: pick this column when the state reaches this tick. */
-  plan: PlannedPick[];
+  /** A winning game: the column of each pick, in turn. */
+  plan: number[];
 }
 
-/** Per colour: pixels reachable from outside now, less what the pots already in buckets still owe. */
-export function freeReachable(s: State): number[] {
-  const fw = s.width + 2;
-  const fh = s.height + 2;
-  const seen = new Uint8Array(fw * fh);
-  const counted = new Uint8Array(s.cells.length);
-  const free = s.palette.map(() => 0);
-  const start = entryCell(s, 0);
-  const queue = [start];
-  seen[start] = 1;
-  while (queue.length) {
-    const cell = queue.pop() as number;
-    const fx = cell % fw;
-    const fy = (cell - fx) / fw;
-    for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]] as const) {
-      const nx = fx + dx;
-      const ny = fy + dy;
-      if (nx < 0 || ny < 0 || nx >= fw || ny >= fh) continue;
-      const next = ny * fw + nx;
-      if (seen[next]) continue;
-      const square = squareOf(s, next);
-      if (square < 0 || s.cells[square] === EMPTY) {
-        seen[next] = 1;
-        queue.push(next);
-      } else if (!counted[square]) {
-        counted[square] = 1;
-        const colour = s.cells[square] as number;
-        free[colour] = (free[colour] as number) + 1;
-      }
-    }
-  }
-  for (const b of s.buckets) if (b) free[b.colour] = (free[b.colour] as number) - (b.count - b.pickedUp);
-  return free;
-}
-
-/** The pots of a winning game in the order they were made, each with the tick it was picked at. */
-export function makePots(picture: Picture, o: DealOptions, rng: Rng = seededRng(o.seed)): { pot: Pot; tick: number }[] {
-  let s = createState(picture, [], o.buckets);
-  const made: { pot: Pot; tick: number }[] = [];
-  const limit = tickLimit(picture);
-  while (status(s) !== 'won') {
-    if (s.ticks > limit) throw new Error('the generator ran out of time: a bug in the rules');
-    if (s.buckets.includes(null)) {
-      const free = freeReachable(s);
-      const roomy = free.flatMap((n, c) => (n >= o.potMin ? [c] : []));
-      const any = free.flatMap((n, c) => (n > 0 ? [c] : []));
-      const choices = roomy.length ? roomy : any;
-      if (choices.length) {
-        const colour = choices[Math.floor(rng() * choices.length)] as number;
-        const pot = { colour, count: Math.min(between(rng, o.potMin, o.potMax), free[colour] as number) };
-        made.push({ pot, tick: s.ticks });
-        s = pick({ ...s, columns: [[pot]] }, 0);
-        continue;
-      }
-    }
-    s = tick(s);
+/** The pots of a winning game in the order they were made. */
+export function makePots(picture: Picture, o: DealOptions, rng: Rng = seededRng(o.seed)): Pot[] {
+  let b = createBoard(picture, [], o.buckets);
+  const made: Pot[] = [];
+  while (status(b) !== 'won') {
+    const free = reachable(b);
+    const roomy = free.flatMap((n, c) => (n >= o.potMin ? [c] : []));
+    const any = free.flatMap((n, c) => (n > 0 ? [c] : []));
+    const choices = roomy.length ? roomy : any;
+    if (!choices.length) throw new Error('the generator found nothing reachable: a bug in the rules');
+    const colour = choices[Math.floor(rng() * choices.length)] as number;
+    const pot = { colour, count: Math.min(between(rng, o.potMin, o.potMax), free[colour] as number) };
+    made.push(pot);
+    b = (pick({ ...b, columns: [[pot]] }, 0) as { board: Board }).board;
   }
   return made;
 }
@@ -99,12 +51,12 @@ export function deal(picture: Picture, o: DealOptions): Deal {
   const rng = seededRng(o.seed);
   const made = makePots(picture, o, rng);
   const columns: Pot[][] = Array.from({ length: o.columns }, () => []);
-  const plan = made.map(({ pot, tick: at }) => {
+  const plan = made.map((pot) => {
     const shortest = Math.min(...columns.map((c) => c.length));
     const open = columns.flatMap((c, i) => (c.length === shortest ? [i] : []));
     const column = open[Math.floor(rng() * open.length)] as number;
     (columns[column] as Pot[]).push(pot);
-    return { tick: at, column };
+    return column;
   });
   return { columns, plan };
 }
@@ -148,60 +100,41 @@ export function perturb(pots: Pot[], columns: number, knobs: Knobs, rng: Rng): P
   return out;
 }
 
-function tickLimit(picture: Picture): number {
-  return picture.cells.length * 50 + 1000;
-}
-
 /**
- * One game by a random player: whenever a bucket is free it picks a column at random among those with
- * pots left, at once. Returns whether it won and the picks it made.
+ * Who plays a measured game. Random picks any column with pots. Sensible plays by the common-sense rule
+ * a careful player keeps: never pick a pot whose colour cannot reach a pixel now; only when every top pot is
+ * shut in does it pick one of them at random.
  */
-export function playRandom(picture: Picture, columns: Pot[][], buckets: number, seed: number): { won: boolean; picks: PlannedPick[] } {
+export type Player = 'random' | 'sensible';
+
+/** One game by a player whose choices come from the seed. Returns whether it won and its picks. */
+export function play(picture: Picture, columns: Pot[][], buckets: number, seed: number, player: Player): { won: boolean; picks: number[] } {
   const rng = seededRng(seed);
-  let s = createState(picture, columns, buckets);
-  const picks: PlannedPick[] = [];
-  const limit = tickLimit(picture);
-  while (status(s) === 'playing' && s.ticks <= limit) {
-    if (s.buckets.includes(null)) {
-      const open = s.columns.flatMap((c, i) => (c.length ? [i] : []));
-      if (open.length) {
-        const column = open[Math.floor(rng() * open.length)] as number;
-        picks.push({ tick: s.ticks, column });
-        s = pick(s, column);
-        continue;
-      }
+  let b = createBoard(picture, columns, buckets);
+  const picks: number[] = [];
+  while (status(b) === 'playing') {
+    let open = b.columns.flatMap((c, i) => (c.length ? [i] : []));
+    if (player === 'sensible') {
+      const free = reachable(b);
+      const sensible = open.filter((i) => (free[(b.columns[i] as Pot[])[0]?.colour as number] as number) > 0);
+      if (sensible.length) open = sensible;
     }
-    s = tick(s);
+    const column = open[Math.floor(rng() * open.length)] as number;
+    picks.push(column);
+    b = (pick(b, column) as { board: Board }).board;
   }
-  return { won: status(s) === 'won', picks };
+  return { won: status(b) === 'won', picks };
 }
 
-/** Plays a plan from a fresh state and returns where it ends. */
-export function replay(picture: Picture, d: Deal, buckets: number): State {
-  let s = createState(picture, d.columns, buckets);
-  let next = 0;
-  const limit = tickLimit(picture);
-  while (status(s) === 'playing' && s.ticks <= limit) {
-    const step = d.plan[next];
-    if (step && step.tick === s.ticks) {
-      s = pick(s, step.column);
-      next += 1;
-      continue;
-    }
-    s = tick(s);
+/** Plays picks in turn from a fresh board, skipping none, and returns where they leave it. */
+export function replay(picture: Picture, columns: Pot[][], buckets: number, picks: number[]): Board {
+  let b = createBoard(picture, columns, buckets);
+  for (const column of picks) {
+    const next = pick(b, column);
+    if (!next) break;
+    b = next.board;
   }
-  return s;
-}
-
-/** Plays the picks at their ticks and stops right after the last one: where a saved game resumes. */
-export function resume(picture: Picture, columns: Pot[][], buckets: number, picks: PlannedPick[]): State {
-  let s = createState(picture, columns, buckets);
-  for (const p of picks) {
-    while (s.ticks < p.tick && status(s) === 'playing') s = tick(s);
-    if (s.ticks !== p.tick) break;
-    s = pick(s, p.column);
-  }
-  return s;
+  return b;
 }
 
 export interface Measure {
@@ -210,25 +143,26 @@ export interface Measure {
   played: number;
   wins: number;
   /** The first winning game's picks, which prove the level can be won. */
-  winning: PlannedPick[] | null;
+  winning: number[] | null;
 }
 
 /**
- * Plays `playouts` random games, seeds 1 to playouts. With a band [lo, hi), it gives up as soon as the
- * share of wins can no longer end inside it and says which side it fell out on; the share it would
- * have measured is exact either way, since every seed is fixed.
+ * Plays `playouts` games, seeds 1 to playouts. With a band [lo, hi), it gives up as soon as the share
+ * of wins can no longer end inside it and says which side it fell out on; the share it would have
+ * measured is exact either way, since every seed is fixed.
  */
 export function measure(
   picture: Picture,
   columns: Pot[][],
   buckets: number,
   playouts: number,
+  player: Player,
   band?: readonly [number, number],
 ): Measure & { outside?: 'easier' | 'harder' } {
   let wins = 0;
-  let winning: PlannedPick[] | null = null;
+  let winning: number[] | null = null;
   for (let seed = 1; seed <= playouts; seed++) {
-    const game = playRandom(picture, columns, buckets, seed);
+    const game = play(picture, columns, buckets, seed, player);
     if (game.won) {
       wins += 1;
       winning ??= game.picks;

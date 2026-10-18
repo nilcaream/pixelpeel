@@ -4,7 +4,7 @@
 
 import { backgroundColour, convert, fillClear, type Image } from './convert.ts';
 import { makePots, measure, perturb, type Knobs } from './generator.ts';
-import { BANDS, PLAYOUTS, bandOf, levelId, type Band, type Level, type Source, type Structure } from './levels.ts';
+import { BANDS, GAUGE, PLAYOUTS, bandOf, levelId, type Band, type Level, type Source, type Structure } from './levels.ts';
 import { POOL } from './palette.ts';
 import { poolPicture } from './picture.ts';
 import { seededRng } from './rng.ts';
@@ -71,9 +71,9 @@ export function potential(spec: Pick<LevelSpec, 'structure' | 'background'>, ima
   let lowest = 1;
   for (let seed = 1; seed <= POTENTIAL_SEEDS; seed++) {
     const rng = seededRng(seed);
-    const pots = makePots(picture, { ...st, seed }, rng).map((m) => m.pot);
+    const pots = makePots(picture, { ...st, seed }, rng);
     const columns = perturb(pots, st.columns, knobsAt(MAX_STRENGTH, pots.length), rng);
-    lowest = Math.min(lowest, measure(picture, columns, st.buckets, PLAYOUTS).wins / PLAYOUTS);
+    lowest = Math.min(lowest, measure(picture, columns, st.buckets, PLAYOUTS, GAUGE).wins / PLAYOUTS);
   }
   return lowest;
 }
@@ -87,10 +87,10 @@ export function bakeLevel(spec: LevelSpec, image: Image, log: (line: string) => 
   let atLimit = 0;
   for (let seed = 1; seed <= MAX_ATTEMPTS; seed++) {
     const rng = seededRng(seed);
-    const pots = makePots(picture, { ...st, seed }, rng).map((m) => m.pot);
+    const pots = makePots(picture, { ...st, seed }, rng);
     const knobs = knobsAt(strength, pots.length);
     const columns = perturb(pots, st.columns, knobs, rng);
-    const m = measure(picture, columns, st.buckets, PLAYOUTS, BANDS[band]);
+    const m = measure(picture, columns, st.buckets, PLAYOUTS, GAUGE, BANDS[band]);
     const wins =
       m.outside === 'easier' ? `≥ ${m.wins}` : m.outside === 'harder' ? `≤ ${m.wins + PLAYOUTS - m.played}` : `${m.wins}`;
     log(`level ${spec.number} seed ${seed} strength ${strength.toFixed(2)}: ${m.outside ?? 'in band'}, wins ${wins} of ${PLAYOUTS}`);

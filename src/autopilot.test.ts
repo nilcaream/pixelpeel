@@ -1,34 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import { autopilotPick, onAutopilot } from './autopilot.ts';
-import { createState, pick, type Pot } from './engine.ts';
 import { parsePicture } from './picture.ts';
+import { createBoard, pick, type Pot } from './rules.ts';
+import { createScene, place } from './scene.ts';
 
 const A: Pot = { colour: 0, count: 1 };
 
-function stateOf(columns: Pot[][], buckets = 1) {
-  return createState(parsePicture(['AAAA'], { A: '#ff0000' }), columns, buckets);
+// Red shut in by yellow, so a red pot stays in its bucket.
+function boardOf(columns: Pot[][], buckets = 1) {
+  return createBoard(parsePicture(['BBB', 'BAB', 'BBB'], { A: '#ff0000', B: '#ffff00' }), columns, buckets);
 }
 
 describe('the autopilot', () => {
   it('leaves the choice to the player while two columns hold pots', () => {
-    expect(onAutopilot(stateOf([[A], [A]]))).toBe(false);
+    expect(onAutopilot(boardOf([[A], [A]]))).toBe(false);
   });
 
   it('takes over when one column is left, since its pots can only go in one order', () => {
-    expect(onAutopilot(stateOf([[], [A, A], []]))).toBe(true);
+    expect(onAutopilot(boardOf([[], [A, A], []]))).toBe(true);
   });
 
   it('takes over when no pots are left, to bring the last dots home', () => {
-    expect(onAutopilot(stateOf([[], []]))).toBe(true);
+    expect(onAutopilot(boardOf([[], []]))).toBe(true);
   });
 
   it('picks the column that is left as soon as a bucket is free, and waits while none is', () => {
-    const s = stateOf([[], [A, A]]);
-    expect(autopilotPick(s)).toBe(1);
-    expect(autopilotPick(pick(s, 1))).toBe(-1);
+    const b = boardOf([[], [A, A]]);
+    expect(autopilotPick(b, createScene(b))).toBe(1);
+    const r = pick(b, 1);
+    if (!r) throw new Error('no pick');
+    expect(autopilotPick(r.board, place(createScene(b), r.pot, r.lifts))).toBe(-1);
   });
 
   it('picks nothing for the player while there is still a choice', () => {
-    expect(autopilotPick(stateOf([[A], [A]]))).toBe(-1);
+    const b = boardOf([[A], [A]]);
+    expect(autopilotPick(b, createScene(b))).toBe(-1);
   });
 });
