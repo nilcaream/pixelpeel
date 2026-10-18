@@ -5,6 +5,7 @@
 
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { replay } from './generator.ts';
+import { measure, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
@@ -16,9 +17,6 @@ import './style.css';
 /** How many cells a dot moves per second; a constant to tune. */
 const STEPS_PER_SECOND = 10;
 const STEP_MS = 1000 / STEPS_PER_SECOND;
-
-/** The height kept free at the top for the level's number and band. */
-const HUD_HEIGHT = 40;
 
 const BAND_LABEL: Record<Band, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard', 'very hard': 'Very hard' };
 
@@ -75,47 +73,7 @@ function goTo(n: number): void {
   open();
 }
 
-interface Layout {
-  left: number;
-  top: number;
-  cell: number;
-  bucketY: number;
-  bucketSize: number;
-  columnsY: number;
-  columnWidth: number;
-  potSize: number;
-  potGap: number;
-  inner: number;
-}
-
 let layout: Layout;
-
-/** Portrait first: one tall column (picture, buckets, pots) that fits the screen and is centred on a wide one. */
-function measure(width: number, height: number): Layout {
-  const fw = scene.width + 2;
-  const fh = scene.height + 2;
-  const at = (inner: number): Layout & { total: number } => {
-    const pad = inner * 0.04;
-    const cell = inner / Math.max(fw, fh);
-    const gap = inner * 0.04;
-    const bucketSize = Math.min(((scene.width * cell) / scene.slots.length) * 0.8, inner * 0.16);
-    const columnWidth = inner / board.columns.length;
-    const potSize = Math.min(columnWidth * 0.7, inner * 0.16);
-    const potGap = potSize * 0.18;
-    const bucketY = HUD_HEIGHT + pad + fh * cell + gap;
-    const columnsY = bucketY + bucketSize + gap * 1.5;
-    const total = columnsY + VISIBLE * (potSize + potGap) + pad;
-    const left = (width - inner) / 2 + (inner - fw * cell) / 2;
-    return { left, top: HUD_HEIGHT + pad, cell, bucketY, bucketSize, columnsY, columnWidth, potSize, potGap, inner, total };
-  };
-  let inner = Math.min(width * 0.92, 560);
-  let l = at(inner);
-  if (l.total > height) {
-    inner *= (height - HUD_HEIGHT) / (l.total - HUD_HEIGHT);
-    l = at(inner);
-  }
-  return { ...l, inner };
-}
 
 function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -124,7 +82,9 @@ function resize(): void {
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (level) layout = measure(w, h);
+  if (level) {
+    layout = measure(w, h, { width: scene.width, height: scene.height, buckets: scene.slots.length, columns: board.columns.length, visible: VISIBLE });
+  }
 }
 
 /**
