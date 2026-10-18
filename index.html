@@ -12,10 +12,11 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
+    <div id="hud"><span id="level-label"></span></div>
     <canvas id="game"></canvas>
     <div id="end" hidden>
       <p id="end-text"></p>
-      <button id="restart" type="button">Restart</button>
+      <button id="end-button" type="button"></button>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
