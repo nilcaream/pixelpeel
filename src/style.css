@@ -245,15 +245,40 @@ body {
   color: #8ab4ff;
 }
 
+/*
+ * The end of a level, drawn as pixel art: a square panel whose light border skips its corner pixels, a
+ * hard shadow under it, and the word and the button in the pixel font, coloured by how the level ended.
+ */
 #end {
+  --end-colour: #8bc34a;
+  --end-shade: #4f7a22;
   position: fixed;
   left: 50%;
   top: 40%;
   transform: translate(-50%, -50%);
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 16px 24px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 48px);
+  padding: 18px 28px 22px;
+  background: #24242c;
+  box-shadow:
+    -4px 0 0 0 #5a5a68,
+    4px 0 0 0 #5a5a68,
+    0 -4px 0 0 #5a5a68,
+    0 4px 0 0 #5a5a68,
+    0 12px 0 0 #0c0c10;
+  font-family: var(--pixel-font);
   text-align: center;
+}
+
+#end[data-state='stuck'] {
+  --end-colour: #e53935;
+  --end-shade: #8e1f1c;
+}
+
+#end[data-state='done'] {
+  --end-colour: #fdd835;
+  --end-shade: #a08612;
 }
 
 #end[hidden] {
@@ -261,16 +286,45 @@ body {
 }
 
 #end p {
-  margin: 0 0 12px;
-  font-size: 20px;
+  margin: 0 0 16px;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+  color: var(--end-colour);
+  text-shadow: 0 4px 0 #0c0c10;
+}
+
+#end[data-state='done'] p {
+  font-size: 30px;
+  margin: 0;
 }
 
 #end button {
-  font: inherit;
-  padding: 8px 20px;
-  border-radius: 8px;
+  font-family: var(--pixel-font);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 6px 26px 8px;
   border: 0;
-  background: var(--ink);
-  color: var(--page);
+  border-radius: 0;
+  background: var(--end-colour);
+  color: #1c1c22;
+  box-shadow:
+    -4px 0 0 0 #0c0c10,
+    4px 0 0 0 #0c0c10,
+    0 -4px 0 0 #0c0c10,
+    0 4px 0 0 #0c0c10,
+    inset 0 -6px 0 0 var(--end-shade);
   cursor: pointer;
+}
+
+#end button:active {
+  transform: translateY(3px);
+  box-shadow:
+    -4px 0 0 0 #0c0c10,
+    4px 0 0 0 #0c0c10,
+    0 -4px 0 0 #0c0c10,
+    0 4px 0 0 #0c0c10,
+    inset 0 -2px 0 0 var(--end-shade);
 }
