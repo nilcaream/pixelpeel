@@ -35,7 +35,7 @@ describe('the scene', () => {
     expect(Array.from(settle(scene).cells)).toEqual(Array.from(board.cells));
   });
 
-  it('counts down at each pickup and frees the bucket at its last pixel, while that dot still flies home', () => {
+  it('counts down at each pickup and, with no bucket of its colour to hand over to, stays until its last dot is home', () => {
     let board = createBoard(parsePicture(['AAA'], COLOURS), [[{ colour: A, count: 3 }]], 1);
     let scene = createScene(board);
     [board, scene] = both(board, scene, 0);
@@ -47,8 +47,8 @@ describe('the scene', () => {
       if (slot) shown.push(slot.count - slot.lifted);
       else if (scene.dots.length > 0) freedWhileOut = true;
     }
-    expect([...new Set(shown)]).toEqual([3, 2, 1]);
-    expect(freedWhileOut).toBe(true);
+    expect([...new Set(shown)]).toEqual([3, 2, 1, 0]);
+    expect(freedWhileOut).toBe(false);
     expect(freeSlot(scene)).toBe(0);
   });
 
@@ -58,6 +58,7 @@ describe('the scene', () => {
     [board, scene] = both(board, scene, 0);
     [board, scene] = both(board, scene, 0);
     while (scene.slots[0]) scene = tick(scene);
+    // Free at once: its last dot is still on its way, to the other red bucket.
     const handed = scene.dots.filter((d) => d.carrying && d.slot === 1 && d.route.length - d.pos > 2);
     expect(handed.length).toBeGreaterThan(0);
     for (const d of handed) expect(d.route.at(-2)).toBe(entryCell(scene, 1));
