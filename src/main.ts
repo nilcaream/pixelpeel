@@ -57,6 +57,7 @@ function open(): void {
     levelNumber.textContent = 'All levels peeled';
     levelName.textContent = '';
     endText.textContent = `All ${LEVELS.length} levels peeled!`;
+    end.dataset.state = 'done';
     endButton.hidden = true;
     end.hidden = false;
     return;
@@ -261,6 +262,7 @@ function frame(now: number): void {
         saveProgress(store, progress);
       }
       endText.textContent = s === 'won' ? 'Peeled!' : 'Stuck';
+      end.dataset.state = s === 'won' ? 'won' : 'stuck';
       endButton.textContent = s === 'won' ? 'Next' : 'Retry';
       endButton.hidden = false;
       end.hidden = false;
