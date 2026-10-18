@@ -1236,7 +1236,7 @@ export const SCENES: readonly Scene[] = [
     },
   },
   {
-    title: 'Space station over a ringed planet',
+    title: 'Space station over a planet',
     ...LARGE,
     draw: (c) => {
       c.gradient(0, 29, 'c', 'p');

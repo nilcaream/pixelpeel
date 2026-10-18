@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { FOOTER_HEIGHT, HEADER_HEIGHT, measure, nameFontSize } from './layout.ts';
+import levelsFile from './levels.json';
+
+const LEVELS = levelsFile as { title: string }[];
 
 const SHAPE = { width: 32, height: 24, buckets: 3, columns: 4, visible: 3 };
 
@@ -43,6 +46,7 @@ describe("the level name's size", () => {
   });
 
   it('shrinks a longer name to whole pixels so it fits between the gutters', () => {
+    // Longer than any level's name now is: the size still steps down for one.
     const chars = 'Space station over a ringed planet'.length;
     for (const width of [360, 390, 412, 430]) {
       const size = nameFontSize(width, chars);
@@ -50,6 +54,12 @@ describe("the level name's size", () => {
       expect(size * chars, `width ${width}`).toBeLessThanOrEqual(width - 32);
     }
     expect(nameFontSize(360, chars)).toBe(9);
+  });
+
+  it("keeps every level's name at 12 px on a 360 px page", () => {
+    for (const level of LEVELS) {
+      expect(nameFontSize(360, level.title.length), level.title).toBe(12);
+    }
   });
 
   it('is never below zero, for a page narrower than its gutters or an empty name', () => {
