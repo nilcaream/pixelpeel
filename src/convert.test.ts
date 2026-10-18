@@ -83,7 +83,7 @@ describe('convert', () => {
 
 describe('readPng', () => {
   it('reads a palette PNG with transparency', () => {
-    const parrot = readPng('levels/sources/kenney-animal-pack-redux/parrot.png');
+    const parrot = readPng('levels/sources/kenney-animal-pack-redux/round/parrot.png');
     expect([parrot.width, parrot.height]).toEqual([129, 128]);
     expect(parrot.rgba[3]).toBe(0);
     const centre = (64 * parrot.width + 64) * 4;

@@ -33,11 +33,14 @@ every pick you make are kept in the browser, so a reload goes on exactly where y
   that are known to win, and perturbs them (pots surface early, the order is turned round, pots merge)
   until the measured share lands in the band. Each level keeps its source and licence, its seed and knobs,
   the measured share and one winning order, which a test replays. `npm run bake -- --check` bakes again
-  and fails if the committed file differs. `BACKGROUND=colour npm run bake` fills each picture's clear
-  background with a colour to peel.
+  and fails if the committed file differs.
+- A picture's background is empty: no pixels there, and dots walk over it from the start. A level listed in
+  `SOLID_BACKGROUND` (`scripts/sources.ts`) fills it with a colour to peel instead, and
+  `BACKGROUND=colour npm run bake` does so for every level.
 - The pictures are Kenney's "Animal Pack Redux", CC0 (https://opengameart.org/content/animal-pack-redux),
-  in `levels/sources/` with the pack's licence. The candidates are listed in `scripts/sources.ts`, and the
-  bake gives the pictures that can be made hardest to the hardest levels.
+  in `levels/sources/` with the pack's licence. Levels 1–10 (and 21–30) show the square animals, and levels
+  11–20 the round heads. The candidates are listed in `scripts/sources.ts`, and the bake gives the
+  pictures that can be made hardest to the hardest levels.
 - In `npm run dev` a level list, a Skip button and `?level=N` are there for trying levels; the production
   build leaves them out.
 
