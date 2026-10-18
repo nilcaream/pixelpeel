@@ -16,7 +16,10 @@ import { FINALE_TEXT, tapOpensMenu } from './finale.ts';
 import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
+import { keepUpdated } from './update.ts';
 import './style.css';
+
+declare const __APP_VERSION__: string;
 
 /** How many cells a dot moves per second; a constant to tune. */
 const STEPS_PER_SECOND = 10;
@@ -53,6 +56,10 @@ let picks: number[] = [];
 let board: Board;
 /** What the screen shows of it, catching up. */
 let scene: Scene;
+/** Whether a pick was made since the level opened: until then a reload brings back exactly this screen. */
+let pickedSinceOpen = false;
+/** Reloads onto a newer build when that loses nothing (update.ts); the production build sets it up. */
+let reloadIfSafe: (leaving?: boolean) => void = () => {};
 
 /** Opens the level the progress is on, resuming its saved picks when they belong to this very level. */
 function open(): void {
@@ -76,6 +83,7 @@ function open(): void {
   picture = poolPicture(level.rows);
   const saved = progress.run?.id === level.id ? progress.run.picks : [];
   picks = saved.slice();
+  pickedSinceOpen = false;
   board = replay(picture, level.columns, level.structure.buckets, picks);
   scene = createScene(board);
   progress = { ...progress, run: { id: level.id, picks } };
@@ -237,6 +245,7 @@ function play(column: number): void {
   const r = pick(board, column);
   if (!r) return;
   picks.push(column);
+  pickedSinceOpen = true;
   board = r.board;
   scene = place(scene, r.pot, r.lifts);
   saveProgress(store, progress);
@@ -252,6 +261,7 @@ endButton.addEventListener('click', () => {
   if (!level) return;
   if (status(board) === 'won') goTo(level.number + 1);
   else goTo(level.number);
+  reloadIfSafe(true);
 });
 
 let last = performance.now();
@@ -298,9 +308,10 @@ function showMenu(shown: boolean): void {
         b.textContent = String(n);
         b.setAttribute('aria-label', `Level ${n}`);
         if (n === level?.number) b.setAttribute('aria-current', 'true');
+        // The level first: closing the menu may reload onto a newer build, which then opens that level.
         b.addEventListener('click', () => {
-          showMenu(false);
           goTo(n);
+          showMenu(false);
         });
         return b;
       }),
@@ -309,6 +320,7 @@ function showMenu(shown: boolean): void {
   menu.hidden = !shown;
   menuButton.setAttribute('aria-expanded', String(shown));
   unarm();
+  if (!shown) reloadIfSafe();
 }
 
 menuButton.addEventListener('click', () => showMenu(menu.hidden === true));
@@ -411,6 +423,9 @@ if (isDevHost(location.hostname)) {
 }
 
 window.addEventListener('resize', resize);
+(document.getElementById('menu-version') as HTMLParagraphElement).textContent = `v${__APP_VERSION__}`;
+// The dev server keeps hot reload: only the production build is kept offline and updated.
+if (import.meta.env.PROD) reloadIfSafe = keepUpdated(() => pickedSinceOpen || !menu.hidden);
 // A canvas draws with whatever font is loaded at that moment, so the first frame waits for the pixel font;
 // if it cannot load, the game starts in the fallback font.
 document.fonts

@@ -74,6 +74,15 @@ progress (tap twice), and links to this repository.
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
   (`.github/workflows/pages.yml`). The site is at a domain root, pixelpeel.nilcaream.com, so Vite's
   `base` is `/` and the manifest and icons are linked by absolute path.
+- The version is `package.json`'s, shown in the menu; it goes up with each release.
+- Offline and updates: the build has a service worker, `src/sw.ts`, built as `/sw.js`. Once the build is
+  written, a plugin in `vite.config.ts` fills in the list of the build's files (`src/precache.ts`), so each
+  new build is a new `sw.js`. The worker keeps the build and serves it, so the game opens offline.
+  - The page asks for a newer build each time it comes back to the screen (`src/update.ts`). A newer build
+    takes over at once.
+  - The page reloads onto it only when that loses nothing: nothing picked since the level opened, the page
+    out of sight, or Next or Retry.
+  - Every step fails silently. The dev server runs without the worker.
 
 ## Licence
 
