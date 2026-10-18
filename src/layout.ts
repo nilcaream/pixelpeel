@@ -1,8 +1,11 @@
 // Where everything goes on the page. Portrait first: one tall column (picture, buckets, pots) that fits
-// the screen and is centred on a wide one.
+// between the header and the footer, and is centred there on a wide or a tall screen.
 
-/** The height kept free at the top for the level's number and band. */
-export const HUD_HEIGHT = 40;
+/** The height kept free at the top for the menu button and the level (--header-h in src/style.css). */
+export const HEADER_HEIGHT = 56;
+
+/** The height kept free at the bottom for the name of the game (--footer-h in src/style.css). */
+export const FOOTER_HEIGHT = 52;
 
 export interface Layout {
   left: number;
@@ -39,16 +42,17 @@ export function measure(width: number, height: number, shape: Shape): Layout {
     const columnWidth = inner / shape.columns;
     const potSize = Math.min(columnWidth * 0.7, inner * 0.16);
     const potGap = potSize * 0.18;
-    const bucketY = HUD_HEIGHT + pad + fh * cell + gap;
+    const bucketY = HEADER_HEIGHT + pad + fh * cell + gap;
     const columnsY = bucketY + bucketSize + gap * 1.5;
-    const total = columnsY + shape.visible * (potSize + potGap) + pad;
+    const total = columnsY + shape.visible * (potSize + potGap) + pad + FOOTER_HEIGHT;
     const left = (width - inner) / 2 + (inner - fw * cell) / 2;
-    return { left, top: HUD_HEIGHT + pad, cell, bucketY, bucketSize, columnsY, columnWidth, potSize, potGap, inner, total };
+    return { left, top: HEADER_HEIGHT + pad, cell, bucketY, bucketSize, columnsY, columnWidth, potSize, potGap, inner, total };
   };
+  const bars = HEADER_HEIGHT + FOOTER_HEIGHT;
   let inner = Math.min(width * 0.92, 560);
   let l = at(inner);
   if (l.total > height) {
-    inner *= Math.max(0, height - HUD_HEIGHT) / (l.total - HUD_HEIGHT);
+    inner *= Math.max(0, height - bars) / (l.total - bars);
     l = at(inner);
   }
   // A tall screen (a phone held upright) has height to spare: the column sits in the middle of it.

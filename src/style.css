@@ -1,4 +1,15 @@
+/* Pixelify Sans (SIL Open Font License 1.1, src/fonts/OFL.txt), served with the game so it works offline. */
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('./fonts/PixelifySans.ttf') format('truetype');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 :root {
+  --pixel-font: 'Pixelify Sans', system-ui, sans-serif;
+  --header-h: 56px;
+  --footer-h: 52px;
   --page: #1c1c22;
   --ink: #f0f0f4;
   --panel: rgba(20, 20, 26, 0.92);
@@ -24,33 +35,66 @@ body {
 }
 
 /* The bar at the top: the menu button on the left, the level in the middle, kept clear of the button on
-   both sides so the middle stays centred. */
+   both sides so the middle stays centred. The heights here are HEADER_HEIGHT and FOOTER_HEIGHT in
+   src/layout.ts. */
 #hud {
   position: fixed;
   left: 0;
   right: 0;
   top: 0;
-  height: 40px;
+  height: var(--header-h);
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 40px;
   align-items: center;
   justify-items: center;
   padding: 0 8px;
-  font-size: 15px;
-  letter-spacing: 0.02em;
 }
 
-#hud [hidden] {
-  display: none;
-}
-
-#level-label,
-#level-chooser {
+#level-info {
   grid-column: 2;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+
+#level-number,
+#level-name {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#level-number {
+  font-family: var(--pixel-font);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#level-name {
+  font-size: 14px;
+  color: #a6a6b2;
+}
+
+#footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--footer-h);
+  /* A block, not a flex box, so the space between the two words stays. */
+  line-height: var(--footer-h);
+  text-align: center;
+  white-space: nowrap;
+  font-family: var(--pixel-font);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-shadow: 0 3px 0 #0c0c10;
+  pointer-events: none;
 }
 
 #menu-button {
@@ -75,9 +119,20 @@ body {
 
 #level-chooser {
   width: 100%;
-  max-width: 300px;
-  border-radius: 999px;
-  padding: 4px 12px;
+  font: inherit;
+  color: var(--ink);
+  background: #2a2a33;
+  border: 1px solid #44444f;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+#level-chooser[hidden] {
+  display: none;
+}
+
+.menu-panel h1 {
+  font-family: var(--pixel-font);
 }
 
 #menu {
@@ -124,10 +179,10 @@ body {
   gap: 10px;
 }
 
-/* The logo is the Cactus level, one canvas pixel per square, scaled up without smoothing. */
+/* The logo is the square Cactus of the icons, one canvas pixel per square, scaled up without smoothing. */
 #menu-logo {
-  width: 48px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   image-rendering: pixelated;
   border-radius: 4px;
 }

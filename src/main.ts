@@ -8,6 +8,7 @@ import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { DEV_KEY, isDevHost } from './dev.ts';
 import { replay } from './generator.ts';
 import { measure, type Layout } from './layout.ts';
+import { LOGO_TITLE, logoRows } from './logo.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { CLEAR_CELL, poolPicture, type Picture } from './picture.ts';
@@ -20,17 +21,14 @@ import './style.css';
 const STEPS_PER_SECOND = 10;
 const STEP_MS = 1000 / STEPS_PER_SECOND;
 
-const BAND_LABEL: Record<Band, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard', 'very hard': 'Very hard' };
 const BAND_SHORT: Record<Band, string> = { easy: 'E', medium: 'M', hard: 'H', 'very hard': 'VH' };
 
 const LEVELS = levelsFile as unknown as Level[];
 
-/** The level whose picture is the app's logo and icon (scripts/make-icons.py draws the icons from it). */
-const LOGO_TITLE = 'Cactus';
-
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-const label = document.getElementById('level-label') as HTMLSpanElement;
+const levelNumber = document.getElementById('level-number') as HTMLSpanElement;
+const levelName = document.getElementById('level-name') as HTMLSpanElement;
 const chooser = document.getElementById('level-chooser') as HTMLSelectElement;
 const menu = document.getElementById('menu') as HTMLDivElement;
 const menuButton = document.getElementById('menu-button') as HTMLButtonElement;
@@ -56,13 +54,15 @@ function open(): void {
   level = LEVELS[progress.level - 1] ?? null;
   end.hidden = true;
   if (!level) {
-    label.textContent = 'All levels peeled';
+    levelNumber.textContent = 'All levels peeled';
+    levelName.textContent = '';
     endText.textContent = `All ${LEVELS.length} levels peeled!`;
     endButton.hidden = true;
     end.hidden = false;
     return;
   }
-  label.textContent = `Level ${level.number} · ${BAND_LABEL[level.band]}`;
+  levelNumber.textContent = `Level ${level.number}`;
+  levelName.textContent = `${level.title} (${level.band})`;
   picture = poolPicture(level.rows);
   const saved = progress.run?.id === level.id ? progress.run.picks : [];
   picks = saved.slice();
@@ -293,11 +293,11 @@ function showMenu(shown: boolean): void {
   menuButton.setAttribute('aria-expanded', String(shown));
 }
 
-// The app's logo is the Cactus level, drawn square for square from its rows, as the icons are.
+// The app's logo is the Cactus level made square, drawn square for square, as the icons are.
 const logoLevel = LEVELS.find((l) => l.title === LOGO_TITLE);
 if (logoLevel) {
   const logo = document.getElementById('menu-logo') as HTMLCanvasElement;
-  const logoPicture = poolPicture(logoLevel.rows);
+  const logoPicture = poolPicture(logoRows(logoLevel.sceneSeed));
   logo.width = logoPicture.width;
   logo.height = logoPicture.height;
   const lctx = logo.getContext('2d') as CanvasRenderingContext2D;
@@ -324,11 +324,11 @@ window.addEventListener('keydown', (e) => {
   open();
 });
 
-// Dev mode shows a chooser of every level in the bar, with what the bake measured for each.
+// Dev mode shows a chooser of every level in the menu, with what the bake measured for each.
 for (const l of LEVELS) {
   const option = document.createElement('option');
   option.value = String(l.number);
-  // Short enough to read whole in the bar of a 360 px phone: number, title, band, depth, casual wins.
+  // Number, title, band, depth, casual wins.
   option.textContent = `${l.number} · ${l.title} · ${BAND_SHORT[l.band]} · d${l.depth} · ${Math.round((l.casualWins / CASUAL_GAMES) * 100)}%`;
   chooser.append(option);
 }
@@ -336,7 +336,6 @@ chooser.addEventListener('change', () => goTo(Number(chooser.value)));
 
 function setDev(on: boolean): void {
   chooser.hidden = !on;
-  label.hidden = on;
   devToggle.checked = on;
   try {
     store?.setItem(DEV_KEY, on ? '1' : '0');
