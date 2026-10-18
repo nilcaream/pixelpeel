@@ -1,16 +1,15 @@
-// What the player sees: dots that walk out of the buckets to the pixels the rules have lifted and carry
-// them home. The rules (rules.ts) have already decided everything; the scene only shows it, in the
-// rules' order, and decides nothing but when. A tick moves every dot one cell and sends new dots out.
+// What the player sees: dots that fly out of the buckets to the pixels the rules have lifted. The rules
+// (rules.ts) have already decided everything; the scene only shows it, in the rules' order, and decides
+// nothing but when. A tick moves every dot one cell and sends new dots out.
 //
 // Dots walk on the frame grid: the picture plus a ring one cell wide around it. A bucket sends a dot for
 // each pixel its pot lifted, in the order the rules lifted them, as soon as the way to it is clear on
-// screen; the pixel disappears when the dot gets there, and the dot takes the shortest way home from
-// it. A bucket whose last pixel is lifted is free at once when another bucket holds its colour, its
-// last dots flying on to that one; otherwise it stays until its last dot is home.
+// screen; the dot and the pixel vanish together when it gets there. A bucket whose last dot has left is
+// gone at once, and its place is free for the next pot.
 
 import { EMPTY, type Board, type Held, type Lift } from './rules.ts';
 
-/** A step of a dot's route that is the bucket itself: every route starts and ends there. */
+/** A step of a dot's route that is the bucket itself: every route starts there. */
 export const AT_BUCKET = -1;
 
 /** How many ticks a bucket waits between sending out two dots. */
@@ -21,8 +20,8 @@ export interface Slot {
   pot: number;
   colour: number;
   count: number;
-  /** Pixels its dots have lifted on screen; the bucket shows count − lifted. */
-  lifted: number;
+  /** Dots it has sent out; the bucket shows count − sent. */
+  sent: number;
   /** The squares the rules lifted for this pot that no dot has set off for yet, in order. */
   queue: number[];
   sinceLaunch: number;
@@ -31,12 +30,9 @@ export interface Slot {
 export interface Dot {
   slot: number;
   colour: number;
-  /** From the bucket (AT_BUCKET) through frame cells to the pixel, and from there home into the bucket. */
+  /** From the bucket (AT_BUCKET) through frame cells to the pixel, its last step. */
   route: number[];
-  /** The index in route where the pixel is. */
-  turn: number;
   pos: number;
-  carrying: boolean;
 }
 
 export interface Scene {
@@ -62,7 +58,7 @@ export function createScene(b: Board): Scene {
     cells: new Int16Array(b.cells),
     slots: Array.from({ length: b.buckets }, (_, i) => {
       const h = b.held[i];
-      return h ? { pot: h.id, colour: h.colour, count: h.count, lifted: h.count - h.left, queue: [], sinceLaunch: LAUNCH_GAP } : null;
+      return h ? { pot: h.id, colour: h.colour, count: h.count, sent: h.count - h.left, queue: [], sinceLaunch: LAUNCH_GAP } : null;
     }),
     dots: [],
     ticks: 0,
@@ -115,7 +111,7 @@ export function place(s: Scene, pot: Held, lifts: Lift[]): Scene {
   const next = clone(s);
   const free = freeSlot(next);
   if (free < 0) throw new Error('no free bucket to show the pick in');
-  next.slots[free] = { pot: pot.id, colour: pot.colour, count: pot.count, lifted: 0, queue: [], sinceLaunch: LAUNCH_GAP };
+  next.slots[free] = { pot: pot.id, colour: pot.colour, count: pot.count, sent: 0, queue: [], sinceLaunch: LAUNCH_GAP };
   for (const lift of lifts) next.slots.find((b) => b?.pot === lift.pot)?.queue.push(lift.square);
   return next;
 }
@@ -185,44 +181,15 @@ function wayTo(s: Scene, bucket: number, square: number): number[] | null {
   return [...descend(s, dist, best).reverse(), best, pixel];
 }
 
-/** Replaces the rest of a carrying dot's route with the shortest way from where it is to its bucket. */
-function planHome(s: Scene, dot: Dot): void {
-  const home = descend(s, walk(s, entryCell(s, dot.slot)), dot.route[dot.pos] as number);
-  dot.route = [...dot.route.slice(0, dot.pos + 1), ...home, AT_BUCKET];
-}
-
-/** One step of time: every dot moves one cell, pixels are lifted on screen, and new dots set off. */
+/** One step of time: every dot moves one cell, a dot at its pixel vanishes with it, and new dots set off. */
 export function tick(s: Scene): Scene {
   const next = clone(s);
   next.ticks += 1;
-  const moving: Dot[] = [];
-  for (const dot of next.dots) {
+  next.dots = next.dots.filter((dot) => {
     dot.pos += 1;
-    if (dot.pos === dot.turn) {
-      const pixel = dot.route[dot.turn] as number;
-      next.cells[squareOf(next, pixel)] = EMPTY;
-      dot.carrying = true;
-      (next.slots[dot.slot] as Slot).lifted += 1;
-      // The way home is planned once, from the pixel, over the picture as it is now.
-      planHome(next, dot);
-    }
-    if (dot.pos < dot.route.length - 1) moving.push(dot);
-  }
-  next.dots = moving;
-  // A bucket at zero hands its dots still on their way to another bucket of its colour and is free at
-  // once; with none to hand them to, it stays until its last dot is home. A dot never lands in a
-  // bucket of another colour.
-  next.slots.forEach((b, i) => {
-    if (!b || b.lifted < b.count) return;
-    const heir = next.slots.findIndex((o, j) => j !== i && o !== null && o.colour === b.colour);
-    if (heir >= 0) {
-      for (const dot of moving) {
-        if (dot.slot !== i) continue;
-        dot.slot = heir;
-        planHome(next, dot);
-      }
-    } else if (moving.some((d) => d.slot === i)) return;
-    next.slots[i] = null;
+    if (dot.pos < dot.route.length - 1) return true;
+    next.cells[squareOf(next, dot.route[dot.pos] as number)] = EMPTY;
+    return false;
   });
   next.slots.forEach((b, i) => {
     if (!b) return;
@@ -231,10 +198,10 @@ export function tick(s: Scene): Scene {
     const way = wayTo(next, i, b.queue[0] as number);
     if (!way) return;
     b.queue.shift();
-    // Back the same way for now; the way home is planned when the pixel is lifted.
-    const back = way.slice(0, -1).reverse();
-    next.dots.push({ slot: i, colour: b.colour, route: [AT_BUCKET, ...way, ...back, AT_BUCKET], turn: way.length, pos: 0, carrying: false });
+    next.dots.push({ slot: i, colour: b.colour, route: [AT_BUCKET, ...way], pos: 0 });
+    b.sent += 1;
     b.sinceLaunch = 0;
+    if (b.sent === b.count) next.slots[i] = null;
   });
   return next;
 }
