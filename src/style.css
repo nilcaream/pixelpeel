@@ -23,6 +23,30 @@ body {
   height: 100dvh;
 }
 
+#hud {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+#hud select,
+#hud button {
+  font: inherit;
+  color: var(--ink);
+  background: #2a2a33;
+  border: 1px solid #44444f;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
 #end {
   position: fixed;
   left: 50%;
