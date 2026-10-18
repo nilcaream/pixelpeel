@@ -208,29 +208,26 @@ body {
   gap: 14px;
 }
 
+/* The title is centred in the panel: an empty column the close button's width balances it on the left. */
 .menu-panel header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
-  justify-content: space-between;
 }
 
 /*
- * The menu is 296 px inside on a 360 px phone. Title: logo 40 + gap 10 + "Pixel Peel" 10 × 16 + close 36
- * = 246 px; "Clear progress" 14 × 14 = 196 px; "Pixel Peel on GitHub" 20 × 12 = 240 px.
+ * The menu is 296 px inside on a 360 px phone. Title: "Pixel Peel" 10 × 16 = 160 of the 224 px between
+ * the columns; "Clear progress" 14 × 14 = 196 px; "Pixel Peel on GitHub" 20 × 12 = 240 px.
  */
 .menu-panel h1 {
+  grid-column: 2;
   margin: 0;
   font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  text-align: center;
 }
 
-/* The logo is the square Cactus of the icons, one canvas pixel per square, scaled up without smoothing. */
-#menu-logo {
-  width: 40px;
-  height: 40px;
-  image-rendering: pixelated;
+#menu-close {
+  grid-column: 3;
 }
 
 .menu-panel h2 {

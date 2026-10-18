@@ -66,9 +66,8 @@ repository.
   `src/scene.ts` animates what the rules decided, with dots on a tick. `src/generator.ts` deals,
   perturbs and measures a level's pots on the rules, and `src/bake.ts` keeps the deals that fit a band. `src/main.ts` draws the scene on a canvas, and
   `src/progress.ts` keeps the player's progress.
-- The icons and the logo are the Cactus level's scene made square, with a few more rows of its sky above
-  and its sand below (`src/logo.ts`). The icons are made by `python3 -I scripts/make-icons.py` (Pillow),
-  and the menu draws the logo from the same rows.
+- The icons are the Cactus level's scene made square, with a few more rows of its sky above and its sand
+  below (`src/logo.ts`). They are made by `python3 -I scripts/make-icons.py` (Pillow).
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
   (`.github/workflows/pages.yml`). The site is at a domain root, pixelpeel.nilcaream.com, so Vite's
   `base` is `/` and the manifest and icons are linked by absolute path.
