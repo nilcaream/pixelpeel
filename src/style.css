@@ -97,33 +97,51 @@ body {
   pointer-events: none;
 }
 
+/*
+ * Controls are pixel art, as the end of a level is: square, with a light 3 px edge that skips the corner
+ * pixels (four box-shadows), a darker bottom row, and the pixel font. A press moves them down.
+ */
+#menu-button,
+.menu-panel button,
+#level-chooser {
+  font-family: var(--pixel-font);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  background: #2a2a33;
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    -3px 0 0 0 #5a5a68,
+    3px 0 0 0 #5a5a68,
+    0 -3px 0 0 #5a5a68,
+    0 3px 0 0 #5a5a68,
+    inset 0 -4px 0 0 #1e1e25;
+  cursor: pointer;
+}
+
+#menu-button:active,
+.menu-panel button:active {
+  transform: translateY(2px);
+}
+
+/* Three pixel bars drawn on the button, so the icon is as square as everything else. */
 #menu-button {
   grid-column: 1;
   width: 36px;
   height: 32px;
   padding: 0;
-  font-size: 18px;
-  line-height: 1;
-  border-radius: 8px;
-}
-
-#hud select,
-#hud button,
-.menu-panel button {
-  font: inherit;
-  color: var(--ink);
-  background: #2a2a33;
-  border: 1px solid #44444f;
-  cursor: pointer;
+  font-size: 0;
+  background:
+    linear-gradient(var(--ink), var(--ink)) center 7px / 18px 3px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) center 13px / 18px 3px no-repeat,
+    linear-gradient(var(--ink), var(--ink)) center 19px / 18px 3px no-repeat,
+    #2a2a33;
 }
 
 #level-chooser {
   width: 100%;
-  font: inherit;
-  color: var(--ink);
-  background: #2a2a33;
-  border: 1px solid #44444f;
-  border-radius: 10px;
+  font-size: 15px;
   padding: 8px 10px;
 }
 
@@ -156,13 +174,17 @@ body {
   max-height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
-  background: var(--panel);
-  border: 1px solid #33333d;
-  border-radius: 14px;
+  background: #24242c;
+  box-shadow:
+    -4px 0 0 0 #5a5a68,
+    4px 0 0 0 #5a5a68,
+    0 -4px 0 0 #5a5a68,
+    0 4px 0 0 #5a5a68,
+    0 12px 0 0 #0c0c10;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .menu-panel header {
@@ -184,12 +206,12 @@ body {
   width: 40px;
   height: 40px;
   image-rendering: pixelated;
-  border-radius: 4px;
 }
 
 .menu-panel h2 {
   margin: 0;
-  font-size: 13px;
+  font-family: var(--pixel-font);
+  font-size: 15px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -199,50 +221,80 @@ body {
 #menu-close {
   width: 36px;
   height: 36px;
-  padding: 0;
-  border-radius: 8px;
+  padding: 0 0 3px;
+  font-size: 20px;
 }
 
 #menu-levels {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  /* Room for the 3 px edges between the squares. */
+  gap: 12px;
+  padding: 3px;
 }
 
 #menu-levels button {
   aspect-ratio: 1;
-  border-radius: 10px;
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 20px;
 }
 
 #menu-levels button[aria-current='true'] {
-  background: var(--ink);
+  background: #fdd835;
   color: var(--page);
+  box-shadow:
+    -3px 0 0 0 #0c0c10,
+    3px 0 0 0 #0c0c10,
+    0 -3px 0 0 #0c0c10,
+    0 3px 0 0 #0c0c10,
+    inset 0 -4px 0 0 #a08612;
 }
 
 #menu-clear {
-  padding: 10px;
-  border-radius: 10px;
+  margin: 0 3px;
+  padding: 8px 10px 10px;
 }
 
 #menu-dev {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  font-family: var(--pixel-font);
+  font-size: 17px;
 }
 
 #menu-dev[hidden] {
   display: none;
 }
 
+/* A square pixel box, filled green when ticked. */
 #menu-dev input {
-  width: 20px;
-  height: 20px;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 3px;
+  background: #2a2a33;
+  box-shadow:
+    -3px 0 0 0 #5a5a68,
+    3px 0 0 0 #5a5a68,
+    0 -3px 0 0 #5a5a68,
+    0 3px 0 0 #5a5a68;
+  cursor: pointer;
+}
+
+#menu-dev input:checked {
+  background: #8bc34a;
+  box-shadow:
+    -3px 0 0 0 #5a5a68,
+    3px 0 0 0 #5a5a68,
+    0 -3px 0 0 #5a5a68,
+    0 3px 0 0 #5a5a68,
+    inset 0 0 0 4px #2a2a33;
 }
 
 #menu-github {
-  color: #8ab4ff;
+  font-family: var(--pixel-font);
+  font-size: 16px;
+  color: #4fc3f7;
 }
 
 /*
