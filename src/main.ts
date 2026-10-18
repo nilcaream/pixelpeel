@@ -14,6 +14,7 @@ import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
 import { FINALE_TEXT, tapOpensMenu } from './finale.ts';
 import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
+import { relayoutWhenShown } from './relayout.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
 import { keepUpdated } from './update.ts';
@@ -430,7 +431,7 @@ if (isDevHost(location.hostname)) {
   open();
 }
 
-window.addEventListener('resize', resize);
+relayoutWhenShown({ doc: document, win: window }, resize);
 // The canvas's box can change without the window's resize, as a phone's bars come and go.
 new ResizeObserver(() => resize()).observe(canvas);
 (document.getElementById('menu-version') as HTMLParagraphElement).textContent = `v${__APP_VERSION__}`;
