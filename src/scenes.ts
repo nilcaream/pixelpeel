@@ -7,18 +7,23 @@
 
 import { seededRng, type Rng } from './rng.ts';
 
+/** The size of a scene that names none: the first twenty levels. Later levels are drawn larger. */
 export const SCENE_WIDTH = 32;
 export const SCENE_HEIGHT = 24;
 
 export class Canvas {
   readonly g: string[][];
   readonly rng: Rng;
-  /** Rows of the same scene drawn above and below the picture's 24, for a square icon; 0 for a level. */
+  readonly width: number;
+  readonly height: number;
+  /** Rows of the same scene drawn above and below the picture's own, for a square icon; 0 for a level. */
   readonly pad: number;
-  constructor(rng: Rng, pad = 0) {
+  constructor(rng: Rng, pad = 0, width = SCENE_WIDTH, height = SCENE_HEIGHT) {
     this.rng = rng;
     this.pad = pad;
-    this.g = Array.from({ length: SCENE_HEIGHT + 2 * pad }, () => Array.from({ length: SCENE_WIDTH }, () => 's'));
+    this.width = width;
+    this.height = height;
+    this.g = Array.from({ length: height + 2 * pad }, () => Array.from({ length: width }, () => 's'));
   }
 
   at(x: number, y: number): string | undefined {
@@ -27,7 +32,67 @@ export class Canvas {
 
   put(x: number, y: number, c: string): void {
     const row = this.g[y + this.pad];
-    if (row && x >= 0 && x < SCENE_WIDTH) row[x] = c;
+    if (row && x >= 0 && x < this.width) row[x] = c;
+  }
+
+  /** Puts `c` where the square now holds a colour in `on`; the way to shade or texture one area only. */
+  putOn(x: number, y: number, c: string, on: string): void {
+    if (on.includes(this.at(x, y) as string)) this.put(x, y, c);
+  }
+
+  /** A straight line of single squares. */
+  line(x0: number, y0: number, x1: number, y1: number, c: string): void {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+    for (let i = 0; i <= n; i++) this.put(Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n), c);
+  }
+
+  /**
+   * Rows from y0 to y1 blended from colour `a` at the top to `b` at the bottom: `a` alone, then the two
+   * dithered, then `b` alone. Only squares holding a colour in `on` change, when `on` is given.
+   */
+  gradient(y0: number, y1: number, a: string, b: string, on?: string): void {
+    for (let y = y0; y <= y1; y++) {
+      const t = (y - y0) / Math.max(1, y1 - y0);
+      for (let x = 0; x < this.width; x++) {
+        const c = t < 0.3 ? a : t < 0.7 ? ((x + y) % 2 === 0 ? a : b) : b;
+        if (on) this.putOn(x, y, c, on);
+        else this.put(x, y, c);
+      }
+    }
+  }
+
+  /** Texture over a rectangle: a lattice of single squares in `c` every `every` squares, each row of dots half a step off the last, on `on`. */
+  dots(x0: number, y0: number, x1: number, y1: number, c: string, on: string, every = 3): void {
+    for (let y = y0; y <= y1; y++) {
+      if (y % every !== 0) continue;
+      const shift = (Math.floor(y / every) % 2) * Math.floor(every / 2);
+      for (let x = x0; x <= x1; x++) if ((x + shift) % every === 0) this.putOn(x, y, c, on);
+    }
+  }
+
+  /** A brick or plank pattern: the mortar colour on every `h`-th row, and on alternating joints between. */
+  bricks(x0: number, y0: number, x1: number, y1: number, mortar: string, on: string, w = 4, h = 2): void {
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const row = Math.floor((y - y0) / h);
+        const joint = (x - x0 + (row % 2) * Math.floor(w / 2)) % w === 0;
+        if ((y - y0) % h === h - 1 || joint) this.putOn(x, y, mortar, on);
+      }
+  }
+
+  /** The outline of every run of a colour in `of`, where it meets a colour not in `of`, in `c`; across the whole picture. */
+  outline(of: string, c: string): void {
+    const marks: [number, number][] = [];
+    for (let y = -this.pad; y < this.height + this.pad; y++)
+      for (let x = 0; x < this.width; x++) {
+        if (!of.includes(this.at(x, y) as string)) continue;
+        const touches = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([dx, dy]) => {
+          const n = this.at(x + dx, y + dy);
+          return n !== undefined && !of.includes(n);
+        });
+        if (touches) marks.push([x, y]);
+      }
+    for (const [x, y] of marks) this.put(x, y, c);
   }
 
   rect(x0: number, y0: number, x1: number, y1: number, c: string): void {
@@ -36,8 +101,8 @@ export class Canvas {
 
   /** An ellipse; its lower right is in `shade`, dithered at the edge, and its upper left in `light`. */
   ellipse(cx: number, cy: number, rx: number, ry: number, c: string, shade?: string, light?: string): void {
-    for (let y = -this.pad; y < SCENE_HEIGHT + this.pad; y++)
-      for (let x = 0; x < SCENE_WIDTH; x++) {
+    for (let y = -this.pad; y < this.height + this.pad; y++)
+      for (let x = 0; x < this.width; x++) {
         const u = (x - cx) / rx;
         const v = (y - cy) / ry;
         if (u * u + v * v > 1) continue;
@@ -63,9 +128,9 @@ export class Canvas {
 
   /** Ground from about row `top` down, a gentle wave on top: `light` near the top, `deep` below, dithered between. */
   ground(top: number, wave = 1.5, light = 'g', deep = 'd'): void {
-    for (let x = 0; x < SCENE_WIDTH; x++) {
+    for (let x = 0; x < this.width; x++) {
       const h = top + Math.round(wave * Math.sin(x / 4));
-      for (let y = h; y < SCENE_HEIGHT + this.pad; y++) {
+      for (let y = h; y < this.height + this.pad; y++) {
         const d = y - h;
         this.put(x, y, d > 3 || (d > 1 && (x + y) % 2 === 0) ? deep : light);
       }
@@ -76,7 +141,7 @@ export class Canvas {
   scatter(cs: string, n: number, y0: number, y1: number, on: string): void {
     for (let i = 0; i < n; i++)
       for (let tries = 0; tries < 50; tries++) {
-        const x = Math.floor(this.rng() * SCENE_WIDTH);
+        const x = Math.floor(this.rng() * this.width);
         const y = y0 + Math.floor(this.rng() * (y1 - y0 + 1));
         if (on.includes(this.at(x, y) as string)) {
           this.put(x, y, cs[Math.floor(this.rng() * cs.length)] as string);
@@ -105,8 +170,14 @@ export class Canvas {
 
 export interface Scene {
   title: string;
+  /** The picture's size in squares; SCENE_WIDTH × SCENE_HEIGHT when not given. */
+  width?: number;
+  height?: number;
   draw: (c: Canvas) => void;
 }
+
+/** The size of the scenes from level 21 on: more squares for shading, texture and detail, still legible on a phone. */
+export const LARGE = { width: 40, height: 30 } as const;
 
 /** The scenes, in the order of the levels they make. */
 export const SCENES: readonly Scene[] = [
@@ -589,6 +660,606 @@ export const SCENES: readonly Scene[] = [
       c.scatter('s', 10, 16, 23, 'b');
     },
   },
+  // From here the scenes are LARGE: 40 × 30, with shading, texture and scattered detail everywhere.
+  {
+    title: 'Teapot and cup',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 17, 's', 'w');
+      c.dots(0, 0, 39, 17, 'k', 'sw', 6);
+      c.rect(0, 18, 39, 29, 'n');
+      c.bricks(0, 22, 39, 29, 'c', 'n', 10, 3);
+      c.rect(0, 18, 39, 21, 'r');
+      c.dots(0, 18, 39, 21, 'w', 'r', 2);
+      c.ellipse(16, 12, 8, 6, 'b', 'p', 'w');
+      c.ellipse(16, 6, 3, 1, 'b', 'p');
+      c.rect(16, 4, 16, 5, 'y');
+      c.line(23, 11, 28, 6, 'b');
+      c.line(23, 12, 28, 7, 'b');
+      c.line(8, 8, 5, 10, 'b');
+      c.line(5, 10, 5, 14, 'b');
+      c.line(5, 14, 8, 16, 'b');
+      c.flower(13, 12, 'k', 'y');
+      c.flower(19, 13, 'k', 'y');
+      c.rect(29, 13, 36, 17, 'w');
+      c.rect(34, 13, 36, 17, 'e');
+      c.rect(37, 14, 37, 16, 'w');
+      c.rect(28, 18, 37, 18, 'e');
+      c.line(31, 11, 32, 9, 'e');
+      c.line(34, 11, 35, 9, 'e');
+      c.line(29, 4, 30, 2, 'e');
+      c.scatter('oy', 10, 22, 29, 'n');
+    },
+  },
+  {
+    title: 'Rocket launch',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 'b', 's');
+      c.scatter('w', 30, 0, 20, 'bs');
+      c.ellipse(33, 5, 3, 3, 'y', 'o');
+      c.rect(0, 28, 39, 29, 'c');
+      c.dots(0, 28, 39, 29, 'e', 'c', 3);
+      c.rect(8, 6, 10, 27, 'e');
+      c.bricks(8, 6, 10, 27, 'c', 'e', 3, 2);
+      c.ellipse(12, 27, 7, 3, 'e', 'c', 'w');
+      c.ellipse(27, 27, 7, 3, 'e', 'c', 'w');
+      c.ellipse(19, 25, 4, 3, 'o', 'r');
+      c.ellipse(19, 21, 3, 2, 'y', 'o');
+      c.rect(14, 15, 16, 19, 'r');
+      c.rect(23, 15, 25, 19, 'r');
+      c.rect(17, 4, 22, 18, 'w');
+      c.rect(21, 4, 22, 18, 'e');
+      c.triangle(19, 1, 4, 3, 'r', 'n');
+      c.rect(17, 13, 22, 13, 'r');
+      c.ellipse(19, 9, 2, 2, 'c');
+      c.ellipse(19, 9, 1, 1, 's', 'b');
+      c.rect(17, 19, 22, 19, 'c');
+    },
+  },
+  {
+    title: 'Fox in autumn woods',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 13, 's', 'k');
+      c.ground(21, 1, 'y', 'o');
+      c.dots(0, 21, 39, 29, 'r', 'yo', 4);
+      c.rect(3, 8, 5, 22, 'n');
+      c.rect(34, 6, 36, 22, 'n');
+      c.rect(12, 10, 13, 20, 'n');
+      c.dots(3, 8, 5, 22, 'c', 'n', 4);
+      c.dots(34, 6, 36, 22, 'c', 'n', 4);
+      c.ellipse(4, 7, 6, 5, 'r', 'n', 'o');
+      c.ellipse(35, 6, 6, 6, 'o', 'r', 'y');
+      c.ellipse(13, 9, 5, 4, 'y', 'o');
+      c.ellipse(13, 21, 4, 2, 'o', 'r');
+      c.rect(9, 20, 10, 22, 'w');
+      c.ellipse(20, 22, 6, 3, 'o', 'r', 'w');
+      c.rect(17, 25, 18, 27, 'c');
+      c.rect(22, 25, 23, 27, 'c');
+      c.ellipse(27, 19, 3, 3, 'o', 'r');
+      c.rect(25, 15, 25, 16, 'o');
+      c.rect(29, 15, 29, 16, 'o');
+      c.rect(28, 20, 29, 21, 'w');
+      c.put(30, 21, 'c');
+      c.put(27, 18, 'c');
+      c.scatter('ry', 14, 0, 19, 'sk');
+      c.scatter('n', 10, 22, 29, 'yo');
+    },
+  },
+  {
+    title: 'Ice cream cone',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 'k', 'w');
+      c.dots(0, 0, 39, 29, 'y', 'kw', 5);
+      for (let y = 15; y <= 29; y++) {
+        const half = Math.round((6 * (29 - y)) / 14);
+        c.rect(20 - half, y, 20 + half, y, 'n');
+      }
+      c.bricks(14, 15, 26, 29, 'o', 'n', 3, 2);
+      c.ellipse(20, 12, 8, 4, 'k', 'p', 'w');
+      c.ellipse(15, 7, 5, 4, 'w', 'e');
+      c.ellipse(25, 7, 5, 4, 'n', 'c', 'o');
+      c.ellipse(20, 3, 5, 3, 'g', 'd', 'w');
+      c.scatter('ry', 10, 4, 10, 'w');
+      c.put(20, 0, 'r');
+      c.rect(20, 1, 21, 1, 'r');
+      c.line(14, 16, 14, 18, 'k');
+      c.line(26, 16, 26, 17, 'k');
+      c.line(20, 16, 20, 19, 'k');
+    },
+  },
+  {
+    title: 'Red barn and silo',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 15, 's', 'w');
+      c.cloud(14, 2, 8);
+      c.ellipse(5, 4, 3, 3, 'y', 'o');
+      c.ground(18, 1);
+      c.dots(0, 22, 39, 29, 'd', 'g', 3);
+      c.rect(6, 10, 25, 25, 'r');
+      c.bricks(6, 10, 25, 25, 'n', 'r', 40, 3);
+      c.rect(24, 10, 25, 25, 'n');
+      c.rect(4, 9, 27, 10, 'c');
+      c.triangle(15, 4, 9, 12, 'c', 'e');
+      c.rect(13, 18, 18, 25, 'w');
+      c.line(13, 18, 18, 25, 'c');
+      c.line(18, 18, 13, 25, 'c');
+      c.rect(8, 13, 10, 15, 'w');
+      c.rect(21, 13, 23, 15, 'w');
+      c.put(9, 14, 'c');
+      c.put(22, 14, 'c');
+      c.rect(29, 7, 35, 25, 'e');
+      c.rect(34, 7, 35, 25, 'c');
+      c.ellipse(32, 6, 3, 3, 'c', 'c', 'e');
+      c.rect(29, 12, 35, 12, 'c');
+      c.rect(29, 18, 35, 18, 'c');
+      c.rect(0, 20, 4, 20, 'n');
+      c.rect(0, 22, 4, 22, 'n');
+      c.rect(1, 19, 1, 23, 'n');
+      c.rect(4, 19, 4, 23, 'n');
+      c.ellipse(37, 24, 2, 2, 'y', 'o');
+      c.scatter('wy', 12, 23, 29, 'gd');
+    },
+  },
+  {
+    title: 'Parrot in the jungle',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 'g', 'd');
+      c.ellipse(5, 4, 7, 4, 'd', 'd', 'g');
+      c.ellipse(34, 26, 8, 5, 'd', 'd', 'g');
+      c.ellipse(3, 24, 6, 4, 'g', 'd');
+      c.ellipse(35, 8, 6, 5, 'g', 'd');
+      c.rect(0, 20, 39, 21, 'n');
+      c.dots(0, 20, 39, 21, 'c', 'n', 4);
+      c.line(16, 22, 13, 29, 'b');
+      c.line(17, 22, 15, 29, 'y');
+      c.line(18, 22, 17, 29, 'r');
+      c.ellipse(18, 14, 5, 7, 'r', 'n');
+      c.ellipse(21, 15, 3, 5, 'b', 'p');
+      c.line(20, 12, 22, 19, 'y');
+      c.line(22, 12, 23, 18, 'g');
+      c.ellipse(18, 5, 4, 4, 'r', 'n');
+      c.rect(22, 5, 24, 6, 'y');
+      c.put(24, 7, 'y');
+      c.put(19, 4, 'w');
+      c.put(20, 4, 'c');
+      c.rect(17, 19, 17, 19, 'y');
+      c.rect(19, 19, 19, 19, 'y');
+      c.scatter('kyo', 16, 0, 29, 'gd');
+    },
+  },
+  {
+    title: 'Rainbow over hills',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 16, 'b', 's');
+      c.ellipse(20, 22, 19, 16, 'r');
+      c.ellipse(20, 22, 18, 15, 'o');
+      c.ellipse(20, 22, 17, 14, 'y');
+      c.ellipse(20, 22, 16, 13, 'g');
+      c.ellipse(20, 22, 15, 12, 'b');
+      c.ellipse(20, 22, 14, 11, 'p');
+      c.ellipse(20, 22, 13, 10, 's');
+      c.ellipse(34, 4, 3, 3, 'y', 'o');
+      c.cloud(0, 13, 8);
+      c.cloud(32, 12, 8);
+      c.rect(0, 21, 39, 29, 'g');
+      c.ellipse(31, 30, 15, 10, 'd', 'd', 'g');
+      c.ellipse(6, 33, 14, 11, 'd', 'd', 'g');
+      c.dots(0, 21, 39, 29, 'd', 'g', 3);
+      c.rect(6, 23, 8, 24, 'w');
+      c.put(9, 24, 'c');
+      c.rect(14, 25, 16, 26, 'w');
+      c.put(13, 26, 'c');
+      c.ellipse(29, 23, 3, 3, 'g', 'd');
+      c.ellipse(21, 25, 2, 2, 'g', 'd');
+      c.scatter('wy', 14, 22, 29, 'gd');
+    },
+  },
+  {
+    title: 'Robot',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 25, 'p', 'b');
+      c.scatter('w', 20, 0, 24, 'pb');
+      c.rect(0, 26, 39, 29, 'c');
+      c.bricks(0, 26, 39, 29, 'e', 'c', 6, 2);
+      c.rect(19, 0, 20, 2, 'c');
+      c.put(19, 0, 'r');
+      c.rect(14, 3, 25, 11, 'e');
+      c.rect(24, 3, 25, 11, 'c');
+      c.rect(16, 5, 18, 7, 'y');
+      c.rect(21, 5, 23, 7, 'y');
+      c.put(17, 6, 'c');
+      c.put(22, 6, 'c');
+      c.rect(16, 9, 23, 9, 'c');
+      for (let x = 16; x <= 23; x += 2) c.put(x, 9, 'w');
+      c.rect(18, 12, 21, 12, 'c');
+      c.rect(12, 13, 27, 23, 'b');
+      c.dots(12, 13, 27, 23, 'c', 'b', 4);
+      c.rect(26, 13, 27, 23, 'p');
+      c.rect(15, 15, 24, 20, 'e');
+      c.put(17, 17, 'r');
+      c.put(20, 17, 'g');
+      c.put(23, 17, 'y');
+      c.rect(16, 19, 23, 19, 'c');
+      c.rect(9, 13, 11, 21, 'e');
+      c.rect(28, 13, 30, 21, 'e');
+      c.rect(9, 16, 11, 16, 'c');
+      c.rect(28, 16, 30, 16, 'c');
+      c.rect(9, 22, 9, 23, 'e');
+      c.rect(11, 22, 11, 23, 'e');
+      c.rect(28, 22, 28, 23, 'e');
+      c.rect(30, 22, 30, 23, 'e');
+      c.rect(14, 24, 17, 25, 'e');
+      c.rect(22, 24, 25, 25, 'e');
+      c.rect(13, 26, 18, 27, 'b');
+      c.rect(21, 26, 26, 27, 'b');
+      c.scatter('y', 6, 0, 24, 'pb');
+    },
+  },
+  {
+    title: 'Owl at night',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 'c', 'b');
+      c.scatter('w', 30, 0, 29, 'cb');
+      c.ellipse(8, 6, 4, 4, 'y', 'o', 'w');
+      c.rect(0, 24, 39, 25, 'n');
+      c.dots(0, 24, 39, 25, 'c', 'n', 4);
+      c.ellipse(6, 27, 5, 2, 'd', 'd', 'g');
+      c.ellipse(34, 27, 5, 2, 'd', 'd', 'g');
+      c.ellipse(14, 22, 3, 2, 'd', 'd', 'g');
+      c.ellipse(24, 17, 6, 7, 'n', 'c');
+      c.ellipse(19, 17, 2, 5, 'c');
+      c.ellipse(24, 19, 3, 4, 'w', 'e');
+      c.dots(21, 15, 27, 23, 'n', 'we', 2);
+      c.ellipse(24, 9, 5, 4, 'n', 'c');
+      c.triangle(20, 5, 8, 1, 'n');
+      c.triangle(28, 5, 8, 1, 'n');
+      c.ellipse(22, 9, 2, 2, 'y', 'o');
+      c.ellipse(26, 9, 2, 2, 'y', 'o');
+      c.put(22, 9, 'c');
+      c.put(26, 9, 'c');
+      c.rect(24, 11, 24, 12, 'o');
+      c.put(22, 24, 'y');
+      c.put(26, 24, 'y');
+    },
+  },
+  {
+    title: 'Dragon',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 27, 'c', 'p');
+      c.scatter('w', 24, 0, 27, 'cp');
+      c.rect(0, 28, 39, 29, 'c');
+      c.dots(0, 28, 39, 29, 'e', 'c', 3);
+      c.ellipse(23, 6, 13, 5, 'd');
+      c.triangle(12, 0, 2, 2, 'd');
+      c.triangle(23, 0, 2, 2, 'd');
+      c.triangle(34, 0, 2, 2, 'd');
+      for (const [x, y] of [[12, 1], [23, 1], [34, 1], [9, 7], [37, 7]] as const) c.line(22, 12, x, y, 'g');
+      c.ellipse(22, 17, 10, 5, 'g', 'd');
+      c.dots(12, 12, 32, 22, 'd', 'g', 3);
+      c.ellipse(22, 20, 8, 2, 'y', 'o');
+      c.bricks(14, 19, 30, 22, 'o', 'y', 40, 2);
+      c.rect(17, 21, 19, 27, 'g');
+      c.rect(26, 21, 28, 27, 'g');
+      c.rect(19, 21, 19, 27, 'd');
+      c.rect(28, 21, 28, 27, 'd');
+      for (const x of [16, 18, 20, 25, 27, 29]) c.put(x, 28, 'w');
+      c.line(31, 19, 37, 24, 'g');
+      c.line(31, 20, 37, 25, 'd');
+      c.triangle(38, 22, 27, 2, 'y');
+      c.ellipse(13, 13, 4, 4, 'g', 'd');
+      c.ellipse(11, 9, 4, 3, 'g', 'd');
+      c.ellipse(10, 6, 6, 4, 'g', 'd');
+      c.rect(4, 7, 9, 7, 'r');
+      for (const x of [5, 7, 9]) c.put(x, 6, 'w');
+      c.rect(11, 5, 12, 5, 'y');
+      c.put(12, 5, 'c');
+      c.line(13, 3, 15, 0, 'y');
+      c.line(11, 3, 12, 1, 'y');
+      c.ellipse(2, 8, 3, 2, 'o', 'r', 'y');
+      c.put(0, 7, 'y');
+    },
+  },
+  {
+    title: 'Watermelon slice',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 'w', 'y');
+      c.dots(0, 0, 39, 29, 'o', 'wy', 6);
+      c.ellipse(20, 22, 15, 13, 'd', 'd', 'g');
+      c.ellipse(20, 22, 13, 11, 'w');
+      c.ellipse(20, 22, 12, 10, 'r', 'r', 'k');
+      c.dots(10, 12, 30, 22, 'c', 'r', 4);
+      c.rect(0, 23, 39, 29, 'y');
+      c.dots(0, 23, 39, 29, 'o', 'y', 6);
+      c.ellipse(20, 25, 18, 3, 'e', 'c', 'w');
+      c.rect(2, 23, 37, 23, 'd');
+      c.dots(2, 23, 37, 23, 'g', 'd', 3);
+    },
+  },
+  {
+    title: 'Campfire and tent',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 19, 'c', 'b');
+      c.scatter('w', 24, 0, 12, 'cb');
+      c.ellipse(34, 4, 2, 2, 'w', 'e');
+      c.ground(20, 1);
+      c.dots(0, 22, 39, 29, 'd', 'g', 3);
+      c.triangle(33, 4, 20, 5, 'g', 'd');
+      c.rect(32, 20, 33, 23, 'n');
+      c.triangle(4, 8, 20, 4, 'g', 'd');
+      c.rect(3, 20, 4, 22, 'n');
+      c.triangle(12, 8, 24, 9, 'o', 'r');
+      c.triangle(12, 14, 24, 3, 'c');
+      c.line(12, 8, 12, 24, 'y');
+      c.line(15, 26, 25, 24, 'n');
+      c.line(15, 24, 25, 26, 'n');
+      c.ellipse(20, 21, 3, 4, 'o', 'r', 'y');
+      c.ellipse(20, 19, 2, 2, 'y');
+      c.line(20, 15, 22, 11, 'e');
+      for (const x of [14, 17, 23, 26]) c.put(x, 27, 'e');
+      c.scatter('y', 8, 12, 18, 'cb');
+    },
+  },
+  {
+    title: 'Peacock',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 's', 'w');
+      c.ellipse(20, 20, 19, 16, 'g', 'd');
+      for (let k = 0; k <= 8; k++) {
+        const a = Math.PI + (k * Math.PI) / 8;
+        const x = Math.round(20 + 15 * Math.cos(a));
+        const y = Math.round(20 + 13 * Math.sin(a));
+        c.ellipse(x, y, 2, 2, 'b');
+        c.put(x, y, 'y');
+      }
+      for (let k = 1; k <= 5; k++) {
+        const a = Math.PI + (k * Math.PI) / 6;
+        const x = Math.round(20 + 9 * Math.cos(a));
+        const y = Math.round(20 + 8 * Math.sin(a));
+        c.ellipse(x, y, 1, 1, 'p');
+        c.put(x, y, 'y');
+      }
+      c.rect(0, 27, 39, 29, 'g');
+      c.dots(0, 27, 39, 29, 'd', 'g', 3);
+      c.ellipse(20, 22, 4, 6, 'b', 'p');
+      c.rect(19, 11, 21, 17, 'b');
+      c.ellipse(20, 9, 2, 2, 'b', 'p');
+      c.put(19, 6, 'y');
+      c.put(20, 5, 'y');
+      c.put(21, 6, 'y');
+      c.put(22, 9, 'y');
+      c.put(21, 8, 'w');
+      c.rect(18, 28, 18, 29, 'o');
+      c.rect(22, 28, 22, 29, 'o');
+      c.scatter('w', 8, 0, 8, 's');
+    },
+  },
+  {
+    title: 'Snail in the garden',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 14, 's', 'w');
+      c.ground(15, 1);
+      c.dots(0, 18, 39, 29, 'd', 'g', 3);
+      c.rect(5, 14, 5, 25, 'd');
+      c.ellipse(5, 11, 3, 3, 'r', 'r', 'k');
+      c.put(5, 11, 'y');
+      c.ellipse(3, 20, 2, 1, 'g', 'd');
+      c.rect(34, 12, 34, 25, 'd');
+      c.ellipse(34, 9, 3, 3, 'p', 'p', 'k');
+      c.put(34, 9, 'y');
+      c.ellipse(36, 19, 2, 1, 'g', 'd');
+      c.rect(12, 24, 30, 26, 'k');
+      c.rect(12, 26, 30, 26, 'p');
+      c.ellipse(12, 23, 3, 3, 'k', 'p');
+      c.line(11, 20, 10, 17, 'k');
+      c.line(13, 20, 14, 17, 'k');
+      c.put(10, 16, 'c');
+      c.put(14, 16, 'c');
+      c.ellipse(24, 20, 6, 5, 'o', 'n', 'y');
+      c.ellipse(24, 20, 3, 3, 'y', 'o');
+      c.put(24, 20, 'n');
+      c.put(25, 20, 'n');
+      c.scatter('wyr', 14, 19, 29, 'gd');
+    },
+  },
+  {
+    title: 'Pirate ship',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 15, 'p', 'o');
+      c.ellipse(31, 14, 5, 5, 'y', 'o', 'w');
+      c.gradient(16, 29, 's', 'b');
+      c.dots(0, 17, 39, 29, 'w', 'sb', 4);
+      for (let y = 20; y <= 27; y++) {
+        const half = Math.round(16 * Math.sqrt(1 - ((y - 20) / 8) ** 2));
+        c.rect(20 - half, y, 20 + half, y, 'n');
+      }
+      c.bricks(4, 21, 36, 27, 'c', 'n', 7, 2);
+      for (let y = 21; y <= 27; y++) for (let x = 29; x <= 36; x++) c.putOn(x, y, 'c', 'n');
+      c.rect(4, 20, 36, 20, 'y');
+      c.rect(28, 16, 35, 19, 'n');
+      c.rect(28, 16, 35, 16, 'y');
+      c.rect(30, 17, 31, 18, 'y');
+      c.rect(33, 17, 34, 18, 'y');
+      for (const x of [10, 14, 18, 22, 26]) c.put(x, 23, 'c');
+      for (const x of [8, 12, 16, 20, 24]) c.put(x, 25, 'y');
+      c.line(14, 2, 4, 20, 'y');
+      c.line(25, 5, 36, 16, 'y');
+      c.rect(14, 2, 14, 19, 'n');
+      c.rect(25, 5, 25, 19, 'n');
+      c.ellipse(14, 8, 7, 5, 'w', 'e');
+      c.ellipse(25, 11, 5, 4, 'w', 'e');
+      c.rect(13, 6, 15, 8, 'c');
+      c.put(13, 7, 'w');
+      c.put(15, 7, 'w');
+      c.line(11, 10, 17, 10, 'c');
+      c.line(11, 11, 17, 9, 'c');
+      c.rect(15, 0, 19, 1, 'c');
+      c.put(17, 0, 'w');
+      c.line(3, 4, 5, 5, 'c');
+      c.line(5, 5, 7, 4, 'c');
+    },
+  },
+  {
+    title: 'Koi pond',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 's', 'b');
+      c.dots(0, 0, 39, 26, 'w', 'sb', 5);
+      c.rect(0, 27, 39, 29, 'e');
+      c.dots(0, 27, 39, 29, 'c', 'e', 3);
+      c.ellipse(7, 7, 5, 3, 'g', 'd');
+      c.ellipse(30, 22, 5, 3, 'g', 'd');
+      c.ellipse(34, 5, 4, 2, 'g', 'd');
+      c.ellipse(2, 20, 3, 2, 'g', 'd');
+      c.ellipse(30, 21, 2, 1, 'k', 'p', 'w');
+      c.ellipse(18, 16, 7, 3, 'w', 'e');
+      c.ellipse(16, 15, 2, 1, 'o');
+      c.ellipse(21, 17, 2, 1, 'r');
+      c.put(24, 16, 'c');
+      c.line(11, 16, 8, 13, 'o');
+      c.line(11, 16, 8, 19, 'o');
+      c.line(17, 13, 15, 12, 'o');
+      c.ellipse(27, 9, 5, 2, 'o', 'r');
+      c.put(31, 9, 'c');
+      c.line(22, 9, 20, 7, 'o');
+      c.line(22, 9, 20, 11, 'r');
+      c.scatter('w', 8, 0, 26, 'sb');
+    },
+  },
+  {
+    title: 'Deer in the snow',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 22, 'b', 's');
+      c.scatter('w', 30, 0, 21, 'bs');
+      c.ellipse(33, 5, 3, 3, 'y', 'o', 'w');
+      c.ground(23, 1, 'w', 'e');
+      c.rect(5, 20, 6, 24, 'n');
+      c.triangle(5, 12, 22, 8, 'd', 'g');
+      c.triangle(5, 7, 15, 6, 'd', 'g');
+      c.triangle(5, 3, 10, 4, 'd', 'g');
+      c.dots(0, 3, 13, 22, 'w', 'dg', 3);
+      c.rect(36, 20, 36, 24, 'n');
+      c.triangle(36, 14, 22, 5, 'd', 'g');
+      c.triangle(36, 10, 17, 4, 'd', 'g');
+      c.dots(31, 10, 39, 22, 'w', 'dg', 3);
+      c.ellipse(13, 24, 4, 2, 'd', 'd', 'g');
+      c.dots(9, 22, 17, 26, 'r', 'dg', 2);
+      c.ellipse(22, 19, 6, 3, 'n', 'c');
+      c.rect(18, 22, 19, 27, 'n');
+      c.rect(25, 22, 26, 27, 'n');
+      c.rect(19, 22, 19, 27, 'c');
+      c.rect(26, 22, 26, 27, 'c');
+      c.put(16, 18, 'w');
+      c.ellipse(27, 15, 2, 3, 'n', 'c');
+      c.ellipse(28, 12, 3, 2, 'n', 'c');
+      c.put(31, 12, 'c');
+      c.put(28, 11, 'c');
+      c.ellipse(22, 21, 4, 1, 'w', 'e');
+      c.line(28, 10, 26, 6, 'o');
+      c.line(28, 10, 30, 6, 'o');
+      c.line(27, 8, 25, 7, 'o');
+      c.line(29, 8, 31, 7, 'o');
+      c.line(26, 6, 25, 4, 'o');
+      c.line(30, 6, 31, 4, 'o');
+      c.scatter('e', 12, 24, 29, 'w');
+    },
+  },
+  {
+    title: 'Tractor in a field',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 13, 's', 'w');
+      c.cloud(2, 3, 7);
+      c.cloud(28, 1, 8);
+      c.ellipse(33, 13, 9, 3, 'd', 'd', 'g');
+      c.ellipse(4, 14, 8, 3, 'd', 'd', 'g');
+      c.rect(0, 14, 39, 29, 'n');
+      c.bricks(0, 15, 39, 29, 'o', 'n', 40, 2);
+      c.rect(0, 14, 39, 17, 'y');
+      c.dots(0, 14, 39, 17, 'o', 'y', 2);
+      c.rect(12, 14, 24, 20, 'r');
+      c.rect(23, 14, 24, 20, 'c');
+      c.rect(15, 8, 22, 13, 'r');
+      c.rect(16, 9, 21, 12, 's');
+      c.rect(19, 9, 19, 12, 'r');
+      c.rect(13, 9, 13, 13, 'c');
+      c.ellipse(12, 6, 2, 1, 'e');
+      c.ellipse(8, 4, 1, 1, 'e');
+      c.rect(25, 17, 29, 20, 'r');
+      c.ellipse(14, 23, 5, 5, 'c', 'c', 'e');
+      c.ellipse(14, 23, 2, 2, 'y', 'o');
+      c.ellipse(26, 24, 3, 3, 'c', 'c', 'e');
+      c.put(26, 24, 'y');
+      c.scatter('g', 10, 18, 29, 'no');
+    },
+  },
+  {
+    title: 'Hummingbird at a flower',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 's', 'g');
+      c.dots(0, 18, 39, 29, 'd', 'g', 3);
+      c.line(34, 29, 30, 16, 'd');
+      c.line(35, 29, 31, 16, 'd');
+      c.ellipse(36, 22, 3, 2, 'g', 'd');
+      c.ellipse(28, 24, 3, 2, 'g', 'd');
+      for (const [x, y] of [[30, 8], [26, 11], [34, 11], [28, 15], [32, 15]] as const) c.ellipse(x, y, 3, 2, 'r', 'r', 'k');
+      c.ellipse(30, 12, 2, 2, 'y', 'o');
+      c.line(30, 12, 35, 6, 'y');
+      c.put(35, 6, 'o');
+      c.ellipse(14, 13, 4, 2, 'g', 'd');
+      c.ellipse(18, 11, 2, 2, 'g', 'd');
+      c.put(18, 12, 'p');
+      c.put(19, 12, 'p');
+      c.put(19, 10, 'c');
+      c.line(20, 11, 25, 11, 'c');
+      c.triangle(13, 6, 11, 2, 'b');
+      c.triangle(10, 8, 11, 2, 'b');
+      c.line(10, 14, 6, 16, 'd');
+      c.line(10, 13, 6, 14, 'b');
+      c.scatter('w', 10, 4, 12, 's');
+      c.scatter('yk', 12, 18, 29, 'gd');
+    },
+  },
+  {
+    title: 'Space station over a ringed planet',
+    ...LARGE,
+    draw: (c) => {
+      c.gradient(0, 29, 'c', 'p');
+      c.scatter('w', 40, 0, 29, 'cp');
+      c.ellipse(28, 22, 19, 4, 'e', 'c', 'w');
+      c.ellipse(28, 22, 11, 11, 'o', 'r', 'y');
+      for (const y of [15, 19, 23, 27]) for (let x = 0; x < 40; x++) if ((x + y) % 2 === 0) c.putOn(x, y, 'y', 'or');
+      c.rect(0, 9, 6, 11, 'b');
+      c.rect(15, 9, 21, 11, 'b');
+      c.rect(3, 9, 3, 11, 'c');
+      c.rect(18, 9, 18, 11, 'c');
+      c.rect(0, 10, 21, 10, 'c');
+      c.rect(8, 8, 13, 12, 'e');
+      c.rect(12, 8, 13, 12, 'c');
+      c.dots(8, 8, 13, 12, 'y', 'e', 2);
+      c.line(10, 7, 10, 3, 'e');
+      c.put(10, 2, 'r');
+      c.ellipse(10, 14, 2, 2, 'w', 'e');
+      c.ellipse(4, 24, 2, 2, 'e', 'c', 'w');
+      c.line(32, 3, 38, 1, 'y');
+      c.put(32, 3, 'w');
+    },
+  },
 ];
 
 /**
@@ -596,7 +1267,7 @@ export const SCENES: readonly Scene[] = [
  * rows above and below (more sky, more ground), and the level's own rows sit unchanged in the middle.
  */
 export function sceneRows(scene: Scene, seed: number, pad = 0): string[] {
-  const c = new Canvas(seededRng(seed), pad);
+  const c = new Canvas(seededRng(seed), pad, scene.width ?? SCENE_WIDTH, scene.height ?? SCENE_HEIGHT);
   scene.draw(c);
   return c.rows();
 }
