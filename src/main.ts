@@ -5,6 +5,7 @@
 // was left.
 
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
+import { CONFIRM_MS, confirmTaps } from './confirm.ts';
 import { DEV_KEY, isDevHost } from './dev.ts';
 import { replay } from './generator.ts';
 import { measure, type Layout } from './layout.ts';
@@ -32,6 +33,7 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
 const levelNumber = document.getElementById('level-number') as HTMLSpanElement;
 const levelName = document.getElementById('level-name') as HTMLSpanElement;
+const levelBand = document.getElementById('level-band') as HTMLSpanElement;
 const chooser = document.getElementById('level-chooser') as HTMLSelectElement;
 const menu = document.getElementById('menu') as HTMLDivElement;
 const menuButton = document.getElementById('menu-button') as HTMLButtonElement;
@@ -59,6 +61,8 @@ function open(): void {
   if (!level) {
     levelNumber.textContent = 'All levels peeled';
     levelName.textContent = '';
+    levelBand.textContent = '';
+    resize();
     endText.textContent = `All ${LEVELS.length} levels peeled!`;
     end.dataset.state = 'done';
     endButton.hidden = true;
@@ -66,7 +70,8 @@ function open(): void {
     return;
   }
   levelNumber.textContent = `Level ${level.number}`;
-  levelName.textContent = `${level.title} (${level.band})`;
+  levelName.textContent = level.title;
+  levelBand.textContent = `(${level.band})`;
   picture = poolPicture(level.rows);
   const saved = progress.run?.id === level.id ? progress.run.picks : [];
   picks = saved.slice();
@@ -98,6 +103,10 @@ function resize(): void {
   if (level) {
     layout = measure(w, h, { width: scene.width, height: scene.height, buckets: scene.slots.length, columns: board.columns.length, visible: VISIBLE });
   }
+  // The menu button stays over the picture's left edge (past the ring of one cell round it), at any width;
+  // with no level open, over the left edge of the column the game would use.
+  const edge = level ? layout.left + layout.cell : (w - Math.min(w * 0.92, 560)) / 2;
+  menuButton.style.left = `${Math.round(edge)}px`;
 }
 
 /**
@@ -298,6 +307,7 @@ function showMenu(shown: boolean): void {
   }
   menu.hidden = !shown;
   menuButton.setAttribute('aria-expanded', String(shown));
+  unarm();
 }
 
 // The app's logo is the Cactus level made square, drawn square for square, as the icons are.
@@ -323,12 +333,30 @@ menu.addEventListener('click', (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') showMenu(false);
 });
-(document.getElementById('menu-clear') as HTMLButtonElement).addEventListener('click', () => {
-  if (!window.confirm('Clear your progress and start again from level 1?')) return;
-  progress = FRESH;
-  saveProgress(store, progress);
-  showMenu(false);
-  open();
+// Clearing asks first, on the button itself: the first tap turns it red and asks, a second tap within a
+// second clears, and with no second tap it goes back to how it was.
+const clear = document.getElementById('menu-clear') as HTMLButtonElement;
+const clearLabel = clear.textContent;
+const clearTaps = confirmTaps();
+function unarm(): void {
+  clearTaps.reset();
+  clear.textContent = clearLabel;
+  clear.classList.remove('armed');
+}
+clear.addEventListener('click', () => {
+  if (clearTaps.tap(performance.now()) === 'act') {
+    unarm();
+    progress = FRESH;
+    saveProgress(store, progress);
+    showMenu(false);
+    open();
+    return;
+  }
+  clear.textContent = 'Are you sure';
+  clear.classList.add('armed');
+  window.setTimeout(() => {
+    if (!clearTaps.armed(performance.now())) unarm();
+  }, CONFIRM_MS);
 });
 
 // Dev mode shows a chooser of every level in the menu, with what the bake measured for each.

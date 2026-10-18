@@ -1,8 +1,8 @@
 // Where everything goes on the page. Portrait first: one tall column (picture, buckets, pots) that fits
 // between the header and the footer, and is centred there on a wide or a tall screen.
 
-/** The height kept free at the top for the menu button and the level (--header-h in src/style.css). */
-export const HEADER_HEIGHT = 56;
+/** The height kept free at the top for the menu button and the level's three lines (--header-h in src/style.css). */
+export const HEADER_HEIGHT = 76;
 
 /** The height kept free at the bottom for the name of the game (--footer-h in src/style.css). */
 export const FOOTER_HEIGHT = 52;
