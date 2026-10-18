@@ -35,7 +35,10 @@ describe('perturb', () => {
   const pots = [1, 2, 3, 4, 5, 6].map((count) => ({ colour: count % 2, count }));
   const order = (columns: Pot[][]) => {
     const out: number[] = [];
-    for (let row = 0; columns.some((c) => c[row]); row++) for (const c of columns) if (c[row]) out.push(c[row].count);
+    for (let row = 0; columns.some((c) => c[row]); row++) for (const c of columns) {
+        const pot = c[row];
+        if (pot) out.push(pot.count);
+      }
     return out;
   };
 
