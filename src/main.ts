@@ -188,7 +188,7 @@ function draw(frac: number): void {
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
   ctx.stroke();
 
-  // Dots go under the buckets, so a bucket's number stays readable while dots leave and enter it.
+  // Dots go under the buckets, so a bucket's number stays readable while dots leave it.
   const at = (step: number, bucket: number): [number, number] => {
     if (step === AT_BUCKET) return [bucketCentreX(bucket), layout.bucketY + layout.bucketSize / 2];
     const fx = step % fw;
@@ -206,11 +206,6 @@ function draw(frac: number): void {
     ctx.arc(x, y, cell * 0.36, 0, Math.PI * 2);
     ctx.fillStyle = scene.palette[dot.colour] as string;
     ctx.fill();
-    if (dot.carrying) {
-      ctx.lineWidth = Math.max(1.5, cell * 0.14);
-      ctx.strokeStyle = '#111114';
-      ctx.stroke();
-    }
   }
 
   scene.slots.forEach((bucket, i) => {
@@ -225,7 +220,7 @@ function draw(frac: number): void {
       ctx.setLineDash([]);
       return;
     }
-    drawPot(x, layout.bucketY, size, scene.palette[bucket.colour] as string, bucket.count - bucket.lifted);
+    drawPot(x, layout.bucketY, size, scene.palette[bucket.colour] as string, bucket.count - bucket.sent);
   });
 
   board.columns.forEach((pots, i) => {

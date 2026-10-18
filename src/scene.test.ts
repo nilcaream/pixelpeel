@@ -4,7 +4,7 @@ import { HOUSE, HOUSE_RULES } from './level.ts';
 import { parsePicture } from './picture.ts';
 import { seededRng } from './rng.ts';
 import { createBoard, pick, EMPTY, type Board } from './rules.ts';
-import { AT_BUCKET, createScene, entryCell, freeSlot, idle, place, squareOf, tick, type Scene } from './scene.ts';
+import { AT_BUCKET, createScene, freeSlot, idle, place, squareOf, tick, type Scene } from './scene.ts';
 
 const COLOURS = { A: '#ff0000', B: '#ffff00' };
 const A = 0;
@@ -24,18 +24,24 @@ function settle(scene: Scene, limit = 5000): Scene {
 }
 
 describe('the scene', () => {
-  it('sends a dot out of its bucket to each lifted pixel and back into it', () => {
+  it('sends a dot out of its bucket to each lifted pixel, and the dot and the pixel vanish together', () => {
     let board = createBoard(parsePicture(['AAA'], COLOURS), [[{ colour: A, count: 3 }]], 1);
     let scene = createScene(board);
     [board, scene] = both(board, scene, 0);
     scene = tick(scene);
     const route = scene.dots[0]?.route ?? [];
     expect(route[0]).toBe(AT_BUCKET);
-    expect(route.at(-1)).toBe(AT_BUCKET);
+    const pixel = squareOf(scene, route.at(-1) as number);
+    expect(pixel).toBeGreaterThanOrEqual(0);
+    while (scene.cells[pixel] !== EMPTY) {
+      expect(scene.dots.some((d) => d.route === route)).toBe(true);
+      scene = tick(scene);
+    }
+    expect(scene.dots.some((d) => d.route.at(-1) === route.at(-1))).toBe(false);
     expect(Array.from(settle(scene).cells)).toEqual(Array.from(board.cells));
   });
 
-  it('counts down at each pickup and, with no bucket of its colour to hand over to, stays until its last dot is home', () => {
+  it('counts down as its dots leave and is gone the moment the last one has left', () => {
     let board = createBoard(parsePicture(['AAA'], COLOURS), [[{ colour: A, count: 3 }]], 1);
     let scene = createScene(board);
     [board, scene] = both(board, scene, 0);
@@ -44,24 +50,12 @@ describe('the scene', () => {
     for (let i = 0; i < 40 && !idle(scene); i++) {
       scene = tick(scene);
       const slot = scene.slots[0];
-      if (slot) shown.push(slot.count - slot.lifted);
+      if (slot) shown.push(slot.count - slot.sent);
       else if (scene.dots.length > 0) freedWhileOut = true;
     }
-    expect([...new Set(shown)]).toEqual([3, 2, 1, 0]);
-    expect(freedWhileOut).toBe(false);
+    expect([...new Set(shown)]).toEqual([2, 1]);
+    expect(freedWhileOut).toBe(true);
     expect(freeSlot(scene)).toBe(0);
-  });
-
-  it('sends the last dots of a bucket at zero to a bucket of the same colour, when there is one', () => {
-    let board = createBoard(parsePicture(['AAAA'], COLOURS), [[{ colour: A, count: 1 }, { colour: A, count: 3 }]], 2);
-    let scene = createScene(board);
-    [board, scene] = both(board, scene, 0);
-    [board, scene] = both(board, scene, 0);
-    while (scene.slots[0]) scene = tick(scene);
-    // Free at once: its last dot is still on its way, to the other red bucket.
-    const handed = scene.dots.filter((d) => d.carrying && d.slot === 1 && d.route.length - d.pos > 2);
-    expect(handed.length).toBeGreaterThan(0);
-    for (const d of handed) expect(d.route.at(-2)).toBe(entryCell(scene, 1));
   });
 
   it('holds a dot in its bucket until the pixels on its way are lifted on screen', () => {
@@ -87,7 +81,7 @@ describe('the scene', () => {
         scene = tick(scene);
         // A dot that has just set off is at the start of its route; dots set off at the end of a tick.
         for (const dot of scene.dots.filter((d) => d.pos === 0)) {
-          for (const cell of dot.route.slice(1, dot.turn)) {
+          for (const cell of dot.route.slice(1, -1)) {
             const square = squareOf(scene, cell);
             expect(square < 0 || scene.cells[square] === EMPTY).toBe(true);
           }
