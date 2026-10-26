@@ -79,6 +79,18 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
   a grid tries every bucket count and strength, a few deals each. Each level keeps its seeds,
   strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` bakes
   again and fails if the committed file differs.
+- New levels are designed with the tools in `scripts/design/`, which write under `out/` (not committed). The
+  order is pictures first, then deals, then bands and order:
+  - `npm run design:preview` draws the portfolio to PNGs and measures each picture before any deal. It reports
+    how much one colour peels at the start, how much filler is peeled outside the subject, the subject's share,
+    rounds, groups and patterns. `dump=N` prints a picture's letters.
+  - `npm run design:deals -- run 61,62` deals a picture over buckets × strength × seed and measures each deal.
+    The run is resumable. It can also take a level's picture mirrored, or add deals where a band is close.
+  - `npm run design:reach -- out/deals/*.jsonl` shows which bands each picture reaches, and its best deal per band.
+    `npm run design:order -- 60 90 …` then finds an order for a run of levels under `ruleFor`.
+    `npm run design:gallery -- out/order.json` draws every level in order.
+  - `npm run design:rows -- dump|check` holds the pictures to their letters across a change to the drawing code.
+  - `npm run design:palette -- near|search|census|check|recolour` is for choosing and checking colours.
 - Dev mode is for trying levels. The menu offers it only when the page is opened at exactly `127.0.0.1`
   (for example `npm run dev`), never anywhere else. Once it is on, it stays on there, and the menu shows a
   list of every level with its band, depth and casual win rate. On that host, `?level=N` opens level N.

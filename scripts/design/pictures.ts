@@ -1,0 +1,84 @@
+// What the design tools know about the pictures beyond their drawing: where each picture's subject lies, which
+// shipped picture a remix was drawn from, and which pictures should never be played back to back.
+// Everything is keyed by title, so it holds whether a picture is still in PORTFOLIO or already a level in SCENES.
+
+/**
+ * The subject of a picture: the squares of these colours inside the box [x0, y0, x1, y1] (inclusive), part by
+ * part, set by hand from the drawing code and the letter dump (`npm run design:preview -- dump=N`). Filler is
+ * what the start can peel outside it. A picture without a mask is measured without subject and filler.
+ */
+export const SUBJECT: Record<string, [string, [number, number, number, number]][]> = {
+  'Fox in autumn woods': [['ocrw', [19, 14, 32, 21]]],
+  'Deer in the snow': [['nco', [16, 4, 31, 27]], ['w', [16, 4, 31, 22]]],
+  'Hedgehog with an apple': [['cnkr', [4, 7, 39, 29]], ['w', [26, 18, 39, 26]]],
+  'Cherry blossom tree': [['kpwnc', [2, 1, 38, 29]]],
+  'Whale in the deep sea': [['cew', [7, 4, 39, 24]]],
+  'Penguin on an ice floe': [['cwyoe', [8, 2, 34, 29]]],
+  'Frog on a lily pad': [['gdywcr', [5, 8, 31, 27]]],
+  'Swan on a lake': [['wec', [7, 8, 33, 26]]],
+  'Jellyfish in the deep': [['kw', [5, 0, 35, 29]], ['p', [5, 0, 35, 13]]],
+  'Giraffe at sunset': [['yo', [2, 0, 34, 28]], ['n', [2, 0, 34, 22]], ['c', [16, 28, 31, 28]]],
+  'Squirrel with an acorn': [['oyw', [0, 0, 32, 27]], ['n', [16, 5, 32, 26]], ['c', [26, 7, 32, 12]]],
+  'Flamingo in the shallows': [['kprc', [8, 0, 37, 29]], ['w', [16, 1, 21, 7]]],
+  'Sea turtle': [['gdnoc', [0, 0, 39, 29]], ['y', [8, 6, 34, 23]]],
+  'Volcano island': [['ncroy', [4, 3, 36, 25]]],
+  // The strawberry's seeds (yellow on the berry) are left out.
+  Strawberry: [['rpkgd', [5, 0, 35, 28]]],
+  'Sleeping cat': [['onyc', [3, 4, 36, 26]], ['w', [8, 16, 22, 24]], ['k', [4, 9, 17, 18]]],
+  'Rabbit in a meadow': [['eck', [10, 2, 31, 28]], ['w', [10, 12, 31, 28]]],
+  'Chameleon on a branch': [['ory', [0, 3, 39, 25]], ['c', [0, 3, 39, 24]]],
+  'Treehouse in an oak': [['gdyrnoce', [0, 0, 39, 25]]],
+  'Goldfish in a bowl': [['wsbyrogdc', [7, 3, 33, 27]]],
+  'Bonsai tree': [['ngdc', [1, 1, 38, 26]], ['sb', [7, 20, 33, 28]]],
+  'Wolf under northern lights': [['ce', [6, 0, 39, 23]], ['c', [13, 24, 39, 29]], ['e', [13, 24, 36, 29]], ['w', [12, 13, 16, 21]]],
+  'Spiral galaxy in infrared': [['wyorpnkbs', [0, 0, 39, 29]]],
+  'Nebula pillars in infrared': [['ncork', [0, 0, 39, 29]]],
+  'Mushroom house at night': [['rnkwec', [0, 1, 39, 16]], ['ewnyoc', [10, 15, 30, 29]]],
+  'Fox asleep in the snow': [['orcn', [4, 9, 39, 29]], ['w', [3, 17, 20, 28]]],
+  'Fawn in spring flowers': [['onwc', [5, 15, 39, 29]], ['onkwc', [0, 0, 19, 14]]],
+  'Koi pond in autumn': [['wre', [2, 0, 38, 21]], ['oywc', [3, 22, 39, 29]], ['oywc', [3, 9, 14, 21]]],
+  'Owl in a hollow by day': [['owye', [8, 2, 32, 29]], ['nc', [11, 5, 29, 27]]],
+  'Dragon asleep on its gold': [['gdr', [0, 2, 39, 29]]],
+  'Rocket on the pad at night': [['wern', [9, 0, 30, 27]], ['c', [9, 7, 30, 27]], ['roe', [31, 1, 38, 28]]],
+  'Parrots in the rain': [['rnbpyo', [5, 3, 35, 29]], ['wce', [6, 3, 18, 10]], ['wcg', [21, 3, 33, 10]]],
+  'Goldfish pond from above': [['oyrwkp', [3, 2, 37, 27]], ['gd', [3, 4, 38, 26]]],
+  'Volcano erupting at night': [['nroy', [2, 0, 37, 27]], ['e', [0, 0, 39, 11]], ['c', [3, 9, 37, 25]]],
+  'Rabbit in the snow at dusk': [['no', [5, 1, 35, 29]], ['c', [10, 9, 34, 29]], ['we', [4, 17, 8, 22]]],
+  'Treehouse in autumn at dusk': [['ornygdcew', [0, 0, 39, 25]]],
+  'Tiger in tall grass': [['oncwk', [3, 1, 37, 29]], ['y', [13, 9, 27, 14]]],
+  // The bees and the comb they stand on (the comb is half the title); the torn hive corner is left out.
+  'Bees on a honeycomb': [['ywsrecon', [0, 0, 39, 29]]],
+  'Pizza from above': [['oyrkd', [5, 0, 37, 29]], ['wc', [9, 3, 32, 27]]],
+  "Bird's nest with eggs": [['noyce', [2, 9, 38, 29]], ['sbw', [10, 11, 30, 21]]],
+  'Octopus in a rock pool': [['rnoky', [0, 0, 39, 29]]],
+  'Panda eating bamboo': [['wecn', [10, 0, 30, 29]], ['gyd', [10, 4, 30, 24]]],
+  'Toucan in the rainforest': [['corwbe', [2, 0, 39, 29]], ['y', [3, 3, 30, 16]]],
+  'Crab on the beach': [['rnc', [3, 0, 37, 29]], ['o', [9, 12, 31, 25]]],
+  'Zebra at a waterhole': [['wce', [4, 0, 38, 23]], ['ce', [14, 24, 39, 29]]],
+  'Snow monkey in a hot spring': [['enwkrc', [6, 2, 34, 23]]],
+  'Fireworks over a harbour': [['wyop', [1, 0, 21, 19]], ['wkrp', [21, 0, 37, 15]], ['wgyd', [26, 11, 38, 22]], ['wornp', [0, 14, 10, 24]]],
+  'Stained glass rose window': [['cyrkbsgpew', [4, 0, 35, 29]]],
+  'Peacock feather close-up': [['bstnoygdwe', [4, 0, 36, 29]]],
+  'Mandarin fish on a reef': [['bogyrwc', [4, 2, 38, 25]]],
+  'Lion resting at dusk': [['onyrwkc', [0, 4, 39, 27]]],
+  'Kingfisher diving': [['bsowc', [0, 0, 39, 25]], ['wc', [13, 26, 26, 29]]],
+};
+
+/** A remix's title → the title of the shipped picture it was drawn from. */
+export const REMIX: Record<string, string> = {
+  'Mushroom house at night': 'Mushroom house',
+  'Fox asleep in the snow': 'Fox in autumn woods',
+  'Fawn in spring flowers': 'Deer in the snow',
+  'Koi pond in autumn': 'Koi pond',
+  'Owl in a hollow by day': 'Owl at night',
+  'Dragon asleep on its gold': 'Dragon',
+  'Rocket on the pad at night': 'Rocket launch',
+  'Parrots in the rain': 'Parrot in the jungle',
+  'Goldfish pond from above': 'Goldfish in a bowl',
+  'Volcano erupting at night': 'Volcano island',
+  'Rabbit in the snow at dusk': 'Rabbit in a meadow',
+  'Treehouse in autumn at dusk': 'Treehouse in an oak',
+};
+
+/** Pictures alike enough that two of them are never played back to back. */
+export const APART: readonly (readonly string[])[] = [['Spiral galaxy in infrared', 'Nebula pillars in infrared']];

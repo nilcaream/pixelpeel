@@ -38,5 +38,5 @@ export default defineConfig({
   plugins: [serviceWorker()],
   server: { host: '127.0.0.1' },
   build: { target: 'es2022' },
-  test: { environment: 'node', include: ['src/**/*.test.ts'] },
+  test: { environment: 'node', include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'] },
 });

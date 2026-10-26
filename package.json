@@ -10,7 +10,14 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "bake": "node scripts/bake.ts"
+    "bake": "node scripts/bake.ts",
+    "design:deals": "node scripts/design/deals.ts",
+    "design:reach": "node scripts/design/reach.ts",
+    "design:order": "node scripts/design/order.ts",
+    "design:preview": "node scripts/design/preview.ts",
+    "design:gallery": "node scripts/design/gallery.ts",
+    "design:rows": "node scripts/design/rows-check.ts",
+    "design:palette": "node scripts/design/palette.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
