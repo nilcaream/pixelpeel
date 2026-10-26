@@ -5,6 +5,18 @@ one pixel at a time, colour by colour. You choose the order.
 
 **Live: [pixelpeel.nilcaream.com](https://pixelpeel.nilcaream.com)**
 
+## Screenshots
+
+Four levels part way through, on a phone: Hot-air balloon (11), Robot (28), Treehouse in an oak (41) and
+Cherry blossom tree (51).
+
+<p>
+  <img src="docs/screens/level-11-hot-air-balloon.png" width="200" alt="Level 11, Hot-air balloon, part way through">
+  <img src="docs/screens/level-28-robot.png" width="200" alt="Level 28, Robot, part way through">
+  <img src="docs/screens/level-41-treehouse.png" width="200" alt="Level 41, Treehouse in an oak, part way through">
+  <img src="docs/screens/level-51-cherry-blossom.png" width="200" alt="Level 51, Cherry blossom tree, part way through">
+</p>
+
 ## How to play
 
 - Below the picture is a row of **buckets**, and below them are **columns of pots**. Each pot has a colour
