@@ -20,14 +20,14 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { Level } from '../../src/levels.ts';
-import { MIN_DELTA_E, PAGE, POOL, deltaE, hexToLab } from '../../src/palette.ts';
+import { BLUE_GREENS, MAX_BLUE_GREENS, MIN_DELTA_E, PAGE, POOL, deltaE, hexToLab, paint } from '../../src/palette.ts';
 import { PORTFOLIO } from '../../src/portfolio.ts';
 import { sceneRows } from '../../src/scenes.ts';
 import { FIRST_PORTFOLIO, outDir, pictureAt, rgbOf } from './common.ts';
 
 const ADDED_FLOOR = 25;
 const MAX_SET = 12;
-const MAX_COOL = 4;
+const MAX_COOL = MAX_BLUE_GREENS;
 
 const [command, ...args] = process.argv.slice(2);
 const option = (name: string) => args.find((a) => a.startsWith(`${name}=`))?.slice(name.length + 1);
@@ -44,7 +44,7 @@ for (const a of args) {
     if (!NAME.has(m[1]!)) NAME.set(m[1]!, m[2]!.toLowerCase());
   }
 }
-const COOL = new Set(option('cool') ?? 'gdstbv');
+const COOL = new Set(option('cool') ?? BLUE_GREENS);
 
 type Kind = 'protan' | 'deutan' | 'tritan';
 const MACHADO: Record<Kind, number[][]> = {
@@ -160,8 +160,8 @@ if (command === 'near') {
 } else if (command === 'census') {
   const levels = JSON.parse(readFileSync('src/levels.json', 'utf8')) as Level[];
   const census = [
-    ...levels.map((l) => ({ n: l.number, title: l.title, counts: count(l.rows) })),
-    ...PORTFOLIO.map((s, i) => ({ n: FIRST_PORTFOLIO + i, title: s.title, counts: count(sceneRows(s, 1)) })),
+    ...levels.map((l) => ({ n: l.number, title: l.title, counts: count(paint(l.rows, l.overrides)) })),
+    ...PORTFOLIO.map((s, i) => ({ n: FIRST_PORTFOLIO + i, title: s.title, counts: count(paint(sceneRows(s, 1), s.overrides)) })),
   ];
   for (const p of census) console.log(`${String(p.n).padStart(3)} ${p.title.slice(0, 34).padEnd(34)} ${String(Object.keys(p.counts).length).padStart(2)} ${Object.keys(p.counts).sort().join('')}`);
   const file = `${outDir()}/census.json`;

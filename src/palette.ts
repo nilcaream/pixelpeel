@@ -26,6 +26,39 @@ export const POOL: readonly Colour[] = [
   { name: 'charcoal', char: 'c', hex: '#5b5b5f' },
 ];
 
+/**
+ * Colours a picture may be painted in instead of a default one (a level's overrides). They have letters but no
+ * place in the pool: a picture is drawn, dealt and played in the pool's letters only.
+ */
+export const EXTENDED: readonly Colour[] = [
+  { name: 'navy', char: 'v', hex: '#1a237e' },
+  { name: 'teal', char: 't', hex: '#008488' },
+];
+
+/** What a picture is painted in instead of its default colours: default letter → painted letter. */
+export type Overrides = Readonly<Record<string, string>>;
+
+/** The rows as they are painted: each overridden letter replaced by the one it is painted in. */
+export function paint(rows: readonly string[], overrides: Overrides = {}): string[] {
+  return rows.map((r) => [...r].map((ch) => overrides[ch] ?? ch).join(''));
+}
+
+/**
+ * Throws unless the overrides fit the rows: each key a default letter the picture uses, each value an extended
+ * letter or a default letter the picture does not use, and no two keys painted alike.
+ */
+export function checkOverrides(rows: readonly string[], overrides: Overrides = {}): void {
+  const used = new Set(rows.join(''));
+  const painted = new Set<string>();
+  for (const [from, to] of Object.entries(overrides)) {
+    if (!POOL.some((c) => c.char === from) || !used.has(from)) throw new Error(`override '${from}': not a default colour of the picture`);
+    if (!EXTENDED.some((c) => c.char === to) && !(POOL.some((c) => c.char === to) && !used.has(to)))
+      throw new Error(`override '${from}' → '${to}': not an extended colour, nor a default one the picture does not use`);
+    if (painted.has(to)) throw new Error(`override '${from}' → '${to}': two colours painted alike`);
+    painted.add(to);
+  }
+}
+
 /** The character for a square with no pixel: the page shows through it from the start. */
 export const CLEAR = '.';
 
@@ -35,8 +68,23 @@ export const PAGE = '#1c1c22';
 /** The least CIEDE2000 distance between two colours of the pool, and between a colour and the page. */
 export const MIN_DELTA_E = 20;
 
+/**
+ * The blue-greens, by letter: green, dark green, mint, sky, teal, blue, navy, where colours are most often taken
+ * for one another. A letter not in the pool (mint, until it joins) simply never matches.
+ */
+export const BLUE_GREENS = 'gdxstbv';
+
+/** The most blue-greens one picture may hold. */
+export const MAX_BLUE_GREENS = 4;
+
+/** The blue-greens a picture's rows hold. */
+export function blueGreensOf(rows: readonly string[]): string[] {
+  const used = new Set(rows.join(''));
+  return [...BLUE_GREENS].filter((c) => used.has(c));
+}
+
 export function colourByChar(char: string): Colour {
-  const c = POOL.find((p) => p.char === char);
+  const c = POOL.find((p) => p.char === char) ?? EXTENDED.find((p) => p.char === char);
   if (!c) throw new Error(`'${char}' is not a colour of the pool`);
   return c;
 }

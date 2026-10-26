@@ -7,12 +7,12 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { Level } from '../../src/levels.ts';
-import { CLEAR, PAGE, POOL } from '../../src/palette.ts';
+import { CLEAR, EXTENDED, PAGE, POOL, paint } from '../../src/palette.ts';
 import { sceneRows } from '../../src/scenes.ts';
 import { mirrored, outDir, pictureAt, png, rgbOf } from './common.ts';
 
 const S = 16;
-const colour = new Map<string, number[]>([...POOL.map((p): [string, number[]] => [p.char, rgbOf(p.hex)]), [CLEAR, rgbOf(PAGE)]]);
+const colour = new Map<string, number[]>([...[...POOL, ...EXTENDED].map((p): [string, number[]] => [p.char, rgbOf(p.hex)]), [CLEAR, rgbOf(PAGE)]]);
 const out = outDir('gallery');
 
 function draw(rows: readonly string[], file: string) {
@@ -33,7 +33,7 @@ const slug = (title: string) => title.toLowerCase().replace(/[^a-z0-9 -]/g, '').
 const name = (n: number, title: string, mirror = false) => `${String(n).padStart(2, '0')}-${slug(title)}${mirror ? '-mirrored' : ''}.png`;
 
 const levels = JSON.parse(readFileSync('src/levels.json', 'utf8')) as Level[];
-for (const l of levels) draw(l.rows, name(l.number, l.title));
+for (const l of levels) draw(paint(l.rows, l.overrides), name(l.number, l.title));
 let count = levels.length;
 
 const orderFile = process.argv[2];
@@ -41,7 +41,7 @@ if (orderFile) {
   const order = JSON.parse(readFileSync(orderFile, 'utf8')) as { level: number; picture: number; mirror: boolean; deal: { sceneSeed: number } }[];
   for (const o of order) {
     const scene = pictureAt(o.picture);
-    const rows = sceneRows(scene, o.deal.sceneSeed);
+    const rows = paint(sceneRows(scene, o.deal.sceneSeed), scene.overrides);
     draw(o.mirror ? mirrored(rows) : rows, name(o.level, scene.title, o.mirror));
   }
   count += order.length;

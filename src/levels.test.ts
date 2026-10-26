@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { dealFor, missBy } from './bake.ts';
 import { measure, replay } from './generator.ts';
 import levelsFile from './levels.json';
-import { BLOCKS, CASUAL_GAMES, MAX_LUCK, bandFor, casualFit, levelId, ruleFor, thinkerFit, type Level } from './levels.ts';
-import { poolPicture } from './picture.ts';
+import { BLOCKS, CASUAL_GAMES, MAX_LUCK, bandFor, casualFit, levelId, ruleFor, thinkerFit, type BandRule, type Level } from './levels.ts';
+import { checkOverrides, colourByChar } from './palette.ts';
+import { paintedPicture, poolPicture } from './picture.ts';
 import { status } from './rules.ts';
 import { SCENES, sceneRows } from './scenes.ts';
 
@@ -33,16 +34,28 @@ describe('the bands', () => {
     expect(ruleFor(20)).toBe(BLOCKS[1]?.['very hard']);
     expect(ruleFor(41)).toBe(BLOCKS[4]?.easy);
     expect(ruleFor(60)).toBe(BLOCKS[4]?.['very hard']);
+    expect(ruleFor(51)).toBe(BLOCKS[4]?.easy);
+    expect(ruleFor(61)).toBe(BLOCKS[6]?.easy);
+    expect(ruleFor(90)).toBe(BLOCKS[8]?.['very hard']);
     expect(ruleFor(10 * BLOCKS.length + 1)).toBe(BLOCKS[BLOCKS.length - 1]?.easy);
   });
 
-  it('make each block a step harder than the one before, band by band', () => {
-    for (let b = 1; b < BLOCKS.length; b++)
-      for (const band of ['easy', 'medium', 'hard', 'very hard'] as const) {
-        const [was, is] = [BLOCKS[b - 1]?.[band], BLOCKS[b]?.[band]];
-        expect(is?.casual[1], `${band} in block ${b + 1}`).toBeLessThan(was?.casual[1] as number);
-        expect(is?.depth[1], `${band} in block ${b + 1}`).toBeGreaterThanOrEqual(was?.depth[1] as number);
+  it('make each block a step harder than the one before: no band easier, and the casual range lower on some band', () => {
+    for (let b = 1; b < BLOCKS.length; b++) {
+      if (b === 5) {
+        expect(BLOCKS[5], 'levels 51–60 keep the bands of 41–50').toBe(BLOCKS[4]);
+        continue;
       }
+      let lower = 0;
+      for (const band of ['easy', 'medium', 'hard', 'very hard'] as const) {
+        const [was, is] = [BLOCKS[b - 1]?.[band], BLOCKS[b]?.[band]] as [BandRule, BandRule];
+        expect(is.casual[1], `${band} in block ${b + 1}`).toBeLessThanOrEqual(was.casual[1]);
+        expect(is.depth[1], `${band} in block ${b + 1}`).toBeGreaterThanOrEqual(was.depth[1]);
+        is.shallow.forEach((cap, i) => expect(cap, `${band} in block ${b + 1}, depth ${i + 1}`).toBeLessThanOrEqual(was.shallow[i] ?? 1));
+        if (is.casual[1] < was.casual[1]) lower++;
+      }
+      expect(lower, `block ${b + 1}`).toBeGreaterThan(0);
+    }
   });
 
   it('need a depth-2 thinker for a medium level of block 2, so looking one pick ahead is not enough', () => {
@@ -85,6 +98,8 @@ describe('the scene levels', () => {
 
   it.each(each)('level %i is its scene, dealt as its seed and strength make it', (_, l) => {
     expect(l.rows).toEqual(sceneRows(SCENES[l.number - 1] as (typeof SCENES)[number], l.sceneSeed));
+    expect(l.overrides).toEqual(SCENES[l.number - 1]?.overrides);
+    checkOverrides(l.rows, l.overrides);
     const deal = dealFor(poolPicture(l.rows), l.structure, l.seed, l.strength);
     expect(deal.columns).toEqual(l.columns);
     expect(deal.knobs).toEqual(l.knobs);
@@ -98,6 +113,30 @@ describe('the scene levels', () => {
 
   it.each(each)('level %i can be won: its winning order replays to a win', (_, l) => {
     expect(status(replay(poolPicture(l.rows), l.columns, l.structure.buckets, l.winningOrder))).toBe('won');
+  });
+
+  const painted = each.filter(([, l]) => l.overrides);
+  it('paints levels 61 and 70 navy for charcoal and level 82 teal for sky', () => {
+    expect(painted.map(([n, l]) => [n, l.overrides])).toEqual([
+      [61, { c: 'v' }],
+      [70, { c: 'v' }],
+      [82, { s: 't' }],
+    ]);
+  });
+
+  it.each(painted)('level %i plays the same painted as unpainted: its overrides change only the colours shown', (_, l) => {
+    const shown = paintedPicture(l.rows, l.overrides);
+    expect({ ...shown, palette: shown.palette.length }).toEqual({ ...poolPicture(l.rows), palette: poolPicture(l.rows).palette.length });
+    expect(status(replay(shown, l.columns, l.structure.buckets, l.winningOrder))).toBe('won');
+  });
+
+  it.each(painted)('level %i is painted in its overrides where the game shows it', (_, l) => {
+    const shown = paintedPicture(l.rows, l.overrides);
+    const letters = [...l.rows.join('')];
+    shown.cells.forEach((colour, i) => {
+      const letter = letters[i] as string;
+      if (colour >= 0) expect(shown.palette[colour], `square ${i} '${letter}'`).toBe(colourByChar(l.overrides?.[letter] ?? letter).hex);
+    });
   });
 
   it.each(each)('level %i is in its band, at its depth, with no more luck than allowed', (_, l) => {

@@ -11,7 +11,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { CLEAR, PAGE, POOL } from '../../src/palette.ts';
+import { CLEAR, EXTENDED, PAGE, POOL, paint } from '../../src/palette.ts';
 import { PORTFOLIO } from '../../src/portfolio.ts';
 import { SCENES, sceneRows, type Scene } from '../../src/scenes.ts';
 import { FIRST_PORTFOLIO, OUT_DIR, pictureAt, png, rgbOf } from './common.ts';
@@ -65,7 +65,7 @@ function line(n: number, title: string, rows: string[]): string {
   );
 }
 
-const colour = new Map<string, number[]>([...POOL.map((p): [string, number[]] => [p.char, rgbOf(p.hex)]), [CLEAR, rgbOf(PAGE)]]);
+const colour = new Map<string, number[]>([...[...POOL, ...EXTENDED].map((p): [string, number[]] => [p.char, rgbOf(p.hex)]), [CLEAR, rgbOf(PAGE)]]);
 /** Pictures in cells of the largest size, `across` a row, on the page colour; a null leaves its cell empty; a source is framed grey. */
 function sheet(list: ({ rows: string[]; source?: boolean } | null)[], file: string, s: number, across: number) {
   const w = Math.max(...list.map((p) => p?.rows[0]!.length ?? 0)) * s + 12;
@@ -92,7 +92,7 @@ function sheet(list: ({ rows: string[]; source?: boolean } | null)[], file: stri
 
 const out = `${OUT_DIR}/preview`;
 mkdirSync(out, { recursive: true });
-const drawn = pictures.map(({ n, scene }) => ({ n, title: scene.title, rows: sceneRows(scene, seed) }));
+const drawn = pictures.map(({ n, scene }) => ({ n, title: scene.title, rows: paint(sceneRows(scene, seed), scene.overrides) }));
 const sourceRows = (title: string) => {
   const source = SCENES.find((s) => s.title === title);
   return source ? sceneRows(source, 1) : null;

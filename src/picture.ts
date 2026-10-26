@@ -2,7 +2,7 @@
 // where each character stands for one colour of the palette. A '.' is a clear square: it has no pixel
 // from the start, so the page shows through it and dots walk over it as over an emptied square.
 
-import { CLEAR, POOL } from './palette.ts';
+import { CLEAR, POOL, checkOverrides, colourByChar, paint, type Overrides } from './palette.ts';
 
 /** The cell value of a clear square; the same value the rules give a square whose pixel is gone. */
 export const CLEAR_CELL = -1;
@@ -44,4 +44,15 @@ export function poolPicture(rows: string[]): Picture {
   const colours: Record<string, string> = {};
   for (const c of POOL) if (used.has(c.char)) colours[c.char] = c.hex;
   return parsePicture(rows, colours);
+}
+
+/**
+ * A picture as the game shows it: the pool picture of its rows, every colour keeping its number, each overridden
+ * colour painted in the one it is overridden with. Throws when the overrides do not fit the rows.
+ */
+export function paintedPicture(rows: string[], overrides: Overrides = {}): Picture {
+  checkOverrides(rows, overrides);
+  const picture = poolPicture(rows);
+  const letters = POOL.filter((c) => picture.palette.includes(c.hex)).map((c) => c.char);
+  return { ...picture, palette: [...(paint([letters.join('')], overrides)[0] as string)].map((ch) => colourByChar(ch).hex) };
 }

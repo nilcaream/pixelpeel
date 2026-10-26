@@ -69,15 +69,26 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
   | hard | under 25% | 2–3, and depth 1 wins at most 30% | under 20% | 2–3, and depth 1 wins at most 25% |
   | very hard | under 8% | 3–4, and depth 1 and 2 win at most 15% and 25% | under 6% | 3–4, and depth 1 and 2 win at most 10% and 20% |
 
-  | band | levels 41 on: casual players win | depth |
-  |---|---|---|
-  | easy | 30–55% | 1 |
-  | medium | 12–35% | 2–3, and depth 1 wins at most 40% |
-  | hard | under 12% | 2–3, and depth 1 wins at most 20% |
-  | very hard | under 4% | 3–4, and depth 1 and 2 win at most 10% and 15% |
+  | band | levels 41–60: casual players win | depth | levels 61–70: casual players win | depth |
+  |---|---|---|---|---|
+  | easy | 30–55% | 1 | 25–50% | 1 |
+  | medium | 12–35% | 2–3, and depth 1 wins at most 40% | 10–30% | 2–3, and depth 1 wins at most 35% |
+  | hard | under 12% | 2–3, and depth 1 wins at most 20% | under 10% | 2–3, and depth 1 wins at most 15% |
+  | very hard | under 4% | 3–4, and depth 1 and 2 win at most 10% and 15% | under 4% | 3–4, and depth 1 and 2 win at most 10% and 15% |
+
+  | band | levels 71–80: casual players win | depth | levels 81 on: casual players win | depth |
+  |---|---|---|---|---|
+  | easy | 20–45% | 1 | 15–40% | 1 |
+  | medium | 8–25% | 2–3, and depth 1 wins at most 30% | 6–20% | 2–3, and depth 1 wins at most 25% |
+  | hard | under 8% | 2–3, and depth 1 wins at most 10% | under 6% | 2–3, and depth 1 wins at most 5% |
+  | very hard | under 3% | 3–4, and depth 1 and 2 win at most 5% and 10% | under 3% | 3–4, and depth 1 and 2 win at most 5% and 10% |
 
   A scene may name the deal it is baked from (`deal` in `src/scenes.ts`), chosen from a sweep of the
-  picture's deals for its band and for a game with no trivial first phase; the bake tries it first.
+  picture's deals for its band and for a game with no trivial first phase; the bake tries it first. A scene
+  may also be an earlier level's picture drawn right to left (`mirror`), which plays as a picture of its own. A
+  scene is drawn, dealt and played in the pool's letters only; it may be painted in an extended colour in place of a
+  default one (`overrides`, e.g. charcoal painted navy), which changes how it looks and never how it plays. No picture
+  shows more than four of the blue-greens (green, dark green, sky, teal, blue, navy).
   Pictures drawn but not yet levels wait in `src/portfolio.ts`.
 
   Every level has a luck of at most 5%, and a solver proves it can be won. When no deal of a picture fits

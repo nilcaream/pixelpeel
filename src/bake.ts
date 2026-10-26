@@ -179,6 +179,7 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
           fullSight: v.fullSight,
           luck: v.luck,
           winningOrder: v.winningOrder,
+          ...(scene.overrides && { overrides: scene.overrides }),
         }
       : null;
     return { v, level, picture, columns };

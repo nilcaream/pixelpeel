@@ -8,6 +8,7 @@
 // the pick that decides a game is never a blind guess.
 
 import type { Knobs } from './generator.ts';
+import type { Overrides } from './palette.ts';
 import type { Pot } from './rules.ts';
 
 export type Band = 'easy' | 'medium' | 'hard' | 'very hard';
@@ -57,9 +58,21 @@ export interface BandRule {
  * Block 4: casual ranges down by another 0.1 (easy from 0.4, hard under 0.2, very hard under 0.06);
  * medium may need depth 3, and every shallow cap is lower again.
  *
- * Block 5: casual ranges down by about 0.1 again (easy from 0.3, medium under 0.35, hard under 0.12,
- * very hard under 0.04), and the shallow caps lower once more.
+ * Blocks 5 and 6 (levels 41–60) share one set of bands: casual ranges down by about 0.1 again (easy from
+ * 0.3, medium under 0.35, hard under 0.12, very hard under 0.04), and the shallow caps lower once more.
+ *
+ * Blocks 7 to 9 (levels 61–90): casual ranges down by about 0.05 a block (easy from 0.25, 0.2, 0.15) and the
+ * shallow caps of medium and hard lower each block. Very hard stops shrinking where its pictures already are:
+ * every very hard deal of levels 60–90 has casual at most 0.03, depth 1 at 0 and depth 2 at most 0.05, so
+ * block 7 keeps the very hard of levels 41–60 and block 9 keeps block 8's.
  */
+const FORTY_ONE_TO_SIXTY: Record<Band, BandRule> = {
+  easy: { casual: [0.3, 0.55], depth: [1, 1], shallow: [] },
+  medium: { casual: [0.12, 0.35], depth: [2, 3], shallow: [0.4] },
+  hard: { casual: [0, 0.12], depth: [2, 3], shallow: [0.2] },
+  'very hard': { casual: [0, 0.04], depth: [3, 4], shallow: [0.1, 0.15], wins: 0.85 },
+};
+
 export const BLOCKS: readonly Record<Band, BandRule>[] = [
   {
     easy: { casual: [0.8, 0.981], depth: [1, 1], shallow: [] },
@@ -85,11 +98,25 @@ export const BLOCKS: readonly Record<Band, BandRule>[] = [
     hard: { casual: [0, 0.2], depth: [2, 3], shallow: [0.25] },
     'very hard': { casual: [0, 0.06], depth: [3, 4], shallow: [0.1, 0.2], wins: 0.85 },
   },
+  FORTY_ONE_TO_SIXTY,
+  FORTY_ONE_TO_SIXTY,
   {
-    easy: { casual: [0.3, 0.55], depth: [1, 1], shallow: [] },
-    medium: { casual: [0.12, 0.35], depth: [2, 3], shallow: [0.4] },
-    hard: { casual: [0, 0.12], depth: [2, 3], shallow: [0.2] },
+    easy: { casual: [0.25, 0.5], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.1, 0.3], depth: [2, 3], shallow: [0.35] },
+    hard: { casual: [0, 0.1], depth: [2, 3], shallow: [0.15] },
     'very hard': { casual: [0, 0.04], depth: [3, 4], shallow: [0.1, 0.15], wins: 0.85 },
+  },
+  {
+    easy: { casual: [0.2, 0.45], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.08, 0.25], depth: [2, 3], shallow: [0.3] },
+    hard: { casual: [0, 0.08], depth: [2, 3], shallow: [0.1] },
+    'very hard': { casual: [0, 0.03], depth: [3, 4], shallow: [0.05, 0.1], wins: 0.85 },
+  },
+  {
+    easy: { casual: [0.15, 0.4], depth: [1, 1], shallow: [] },
+    medium: { casual: [0.06, 0.2], depth: [2, 3], shallow: [0.25] },
+    hard: { casual: [0, 0.06], depth: [2, 3], shallow: [0.05] },
+    'very hard': { casual: [0, 0.03], depth: [3, 4], shallow: [0.05, 0.1], wins: 0.85 },
   },
 ];
 
@@ -167,6 +194,8 @@ export interface Level {
    * much. An outlier now and then is accepted; the level still has a winning order and a luck of at most MAX_LUCK.
    */
   misses?: string;
+  /** The scene's overrides, set only on a level that has some: how it is painted, never how it is dealt or played. */
+  overrides?: Overrides;
 }
 
 /** FNV-1a over the picture, the deal and the buckets, as 8 hex digits. */

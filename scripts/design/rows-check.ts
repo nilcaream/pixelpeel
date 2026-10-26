@@ -12,7 +12,8 @@ import { SCENES, sceneRows } from '../../src/scenes.ts';
 import { outDir } from './common.ts';
 
 const file = `${outDir()}/rows.json`;
-const rowsNow = () => Object.fromEntries([...SCENES, ...PORTFOLIO].map((s) => [s.title, [1, 2, 3].map((seed) => sceneRows(s, seed).join('\n'))]));
+const rowsNow = () =>
+  Object.fromEntries([...SCENES, ...PORTFOLIO].map((s) => [s.mirror ? `${s.title} mirrored` : s.title, [1, 2, 3].map((seed) => sceneRows(s, seed).join('\n'))]));
 
 /** The one-for-one letter swap that turns a into b, or null when there is none. */
 function swapOf(a: string, b: string): Map<string, string> | null {

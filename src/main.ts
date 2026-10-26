@@ -11,7 +11,7 @@ import { replay } from './generator.ts';
 import { measure, nameFontSize, toCanvas, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
 import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
-import { poolPicture, type Picture } from './picture.ts';
+import { paintedPicture, type Picture } from './picture.ts';
 import { FINALE_TEXT, tapOpensMenu } from './finale.ts';
 import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
 import { relayoutWhenShown } from './relayout.ts';
@@ -81,7 +81,7 @@ function open(): void {
   levelNumber.textContent = `Level ${level.number}`;
   levelName.textContent = level.title;
   levelBand.textContent = `(${level.band})`;
-  picture = poolPicture(level.rows);
+  picture = paintedPicture(level.rows, level.overrides);
   const saved = progress.run?.id === level.id ? progress.run.picks : [];
   picks = saved.slice();
   pickedSinceOpen = false;
