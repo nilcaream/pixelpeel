@@ -1,7 +1,8 @@
 // Makes one level, offline, from its scene: deals pots, measures the deal, and keeps the first deal that
-// fits the level's band. A deal fits when the solver wins it, the casual share is in the band, a thinker
-// on the visible pots wins at the band's depth while shallower thinkers do not, and seeing the hidden
-// pots adds no more than MAX_LUCK.
+// fits the level's band. A deal fits when the solver wins it, the casual share is inside the band by its
+// margin, a thinker on the visible pots wins at the band's depth while shallower thinkers do not, seeing the
+// hidden pots adds no more than MAX_LUCK, and the hold-out games, which played no part in choosing it, keep
+// it in the band. Once baked, the stored deal is the level: nothing deals it again.
 //
 // The knobs turn in this order: the perturbing strength first (up when the deal was too easy, down when
 // too hard), then fewer buckets (5, 4, 3) once the strength alone could not make it hard enough, then the
@@ -10,16 +11,21 @@
 import { makePots, measure, perturb, type Knobs } from './generator.ts';
 import {
   CASUAL_GAMES,
+  HOLDOUT_CASUAL,
+  HOLDOUT_THINKER,
   MAX_LUCK,
   THINKER_GAMES,
   THINKER_WINS,
   VISIBLE,
   bandFor,
   casualFit,
+  holdsBand,
+  innerCasual,
   levelId,
   ruleFor,
   thinkerFit,
   type BandRule,
+  type Holdout,
   type Level,
   type Structure,
 } from './levels.ts';
@@ -64,29 +70,53 @@ export function knobsAt(strength: number, pots: number): Knobs {
 }
 
 export type Verdict =
-  | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[] }
-  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; winningOrder: number[] };
+  | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[]; holdout?: Holdout }
+  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; holdout: Holdout; winningOrder: number[] };
 
-/** Measures one deal for a band's rule, cheapest measure first, and stops at the first that rules it out. */
-export function judge(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule): Verdict {
-  const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', rule.casual);
-  const casualWins = casual.wins;
-  const fit = casual.outside ?? casualFit(rule, casual.wins / CASUAL_GAMES);
-  if (fit !== 'in') return { fits: false, why: fit, casualWins, thinkers: [] };
+/** The thinkers of depth 1, 2, … on the visible pots, from game `first`, until one says the deal is not too hard. */
+function thinkersFor(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule, first: number) {
   const thinkers: number[] = [];
   let depth: ReturnType<typeof thinkerFit> = 'harder';
   for (let d = 1; d <= rule.depth[1]; d++) {
-    thinkers.push(thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: VISIBLE, depth: d }));
+    thinkers.push(thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: VISIBLE, depth: d }, first));
     depth = thinkerFit(rule, thinkers);
     if (depth !== 'harder') break;
   }
+  return { thinkers, depth };
+}
+
+/**
+ * The hold-out measures of a deal, and whether they keep it in the band: the casual share of the hold-out games
+ * in the band, and the hold-out thinkers at a depth the band allows.
+ */
+export function holdoutOf(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule, full = false): { holdout: Holdout; fit: 'in' | 'easier' | 'harder' } {
+  const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', full ? undefined : rule.casual, HOLDOUT_CASUAL);
+  const fit = casual.outside ?? casualFit(rule, casual.wins / CASUAL_GAMES);
+  if (fit !== 'in') return { holdout: { casualWins: casual.wins, thinkers: [] }, fit };
+  const { thinkers, depth } = thinkersFor(picture, columns, buckets, rule, HOLDOUT_THINKER);
+  return { holdout: { casualWins: casual.wins, thinkers }, fit: typeof depth === 'number' ? 'in' : depth };
+}
+
+/**
+ * Measures one deal for a band's rule, cheapest measure first, and stops at the first that rules it out. The
+ * casual share must be inside the band by its margin, and the hold-out games must keep the deal in the band.
+ */
+export function judge(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule): Verdict {
+  const inner = { ...rule, casual: innerCasual(rule) };
+  const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', inner.casual);
+  const casualWins = casual.wins;
+  const fit = casual.outside ?? casualFit(inner, casual.wins / CASUAL_GAMES);
+  if (fit !== 'in') return { fits: false, why: fit, casualWins, thinkers: [] };
+  const { thinkers, depth } = thinkersFor(picture, columns, buckets, rule, 1);
   if (typeof depth !== 'number') return { fits: false, why: depth, casualWins, thinkers };
   const solved = solve(picture, columns, buckets);
   if (solved.result !== 'win') return { fits: false, why: 'harder', casualWins, thinkers };
   const fullSight = thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: Infinity, depth });
   const luck = round2(Math.max(0, fullSight - Math.max(...thinkers)));
   if (luck > MAX_LUCK) return { fits: false, why: 'luck', casualWins, thinkers };
-  return { fits: true, casualWins, thinkers, depth, fullSight, luck, winningOrder: solved.picks };
+  const { holdout, fit: held } = holdoutOf(picture, columns, buckets, rule);
+  if (held !== 'in') return { fits: false, why: held, casualWins, thinkers, holdout };
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, winningOrder: solved.picks };
 }
 
 /**
@@ -96,7 +126,7 @@ export function judge(picture: Picture, columns: Pot[][], buckets: number, rule:
  * never has more luck than MAX_LUCK, closest or not), or for a deal that fits.
  */
 export function missBy(rule: BandRule, v: Verdict): { by: number; what: string } | null {
-  if (v.fits || v.why === 'luck' || v.thinkers.length === 0) return null;
+  if (v.fits || v.why === 'luck' || v.holdout || v.thinkers.length === 0) return null;
   const wins = rule.wins ?? THINKER_WINS;
   let worst: { by: number; what: string } | null = null;
   v.thinkers.forEach((share, i) => {
@@ -124,7 +154,17 @@ function judgeClosest(picture: Picture, columns: Pot[][], buckets: number, rule:
   if (solved.result !== 'win') throw new Error('the closest deal cannot be won');
   const fullSight = thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: Infinity, depth });
   const luck = round2(Math.max(0, fullSight - Math.max(...thinkers)));
-  return { fits: true, casualWins, thinkers, depth, fullSight, luck, winningOrder: solved.picks };
+  const { holdout } = holdoutOf(picture, columns, buckets, rule);
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, winningOrder: solved.picks };
+}
+
+/**
+ * A stored level judged again on its own deal under its band's rule, for when a rule changes: its hold-out
+ * measures in full, and whether it holds its band (`holdsBand`).
+ */
+export function rejudge(level: Level): { holdout: Holdout; fit: 'in' | 'easier' | 'harder' } {
+  const { holdout } = holdoutOf(poolPicture(level.rows), level.columns, level.structure.buckets, ruleFor(level.number), true);
+  return { holdout, fit: holdsBand({ ...level, holdout }) };
 }
 
 /** The deal of a level, as its picture, structure, seed and strength make it. */
@@ -178,6 +218,7 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
           depth: v.depth,
           fullSight: v.fullSight,
           luck: v.luck,
+          holdout: v.holdout,
           winningOrder: v.winningOrder,
           ...(scene.overrides && { overrides: scene.overrides }),
         }

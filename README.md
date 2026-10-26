@@ -94,14 +94,20 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
   Every level has a luck of at most 5%, and a solver proves it can be won. When no deal of a picture fits
   its band, the level takes the closest deal and records what it misses (`misses` in `src/levels.json`): an
   outlier now and then is accepted on the way to a hundred levels.
-- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, one worker per level; `npm run bake -- 21 22`
-  bakes only those levels and keeps the others as the file has them). For each level it
+- `npm run bake` makes `src/levels.json` offline (`scripts/bake.ts`, one worker per level). A baked level's pots
+  are the level: it is kept as stored while its scene draws the same squares, and a scene drawn in other letters
+  relabels it (the same pots, numbered by the new letters), so a recolour never changes how a level plays. Only a
+  new level, one whose squares changed, or one named (`npm run bake -- 21 22`) is dealt. For each of those it
   deals pots that are known to win and perturbs them (pots surface early, the order is turned round, pots
   merge). It measures the deal, the cheapest measure first, and turns the knobs in this order: the strength
   of the perturbing, then fewer buckets (5, 4, 3), then the scene's next seed. When that search finds no deal,
-  a grid tries every bucket count and strength, a few deals each. Each level keeps its seeds,
-  strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` bakes
-  again and fails if the committed file differs.
+  a grid tries every bucket count and strength, a few deals each. A deal is kept when its casual share is inside
+  the band by a margin (one standard error above the bottom edge, two below the top, since a level too easy is the
+  worse miss), and games the bake did not choose it on (casual games 201–400, thinker games 21–40) keep it in the
+  band. Levels 1–90 were baked before that rule and stay as they were. Each level keeps its seeds,
+  strength, measures and the solver's winning order, which a test replays. `npm run bake -- --check` fails when
+  the committed file is not what `npm run bake` would make; `npm run bake -- --judge [21 22]` judges stored levels
+  again under the rules as they are now and writes nothing.
 - New levels are designed with the tools in `scripts/design/`, which write under `out/` (not committed). The
   order is pictures first, then deals, then bands and order:
   - `npm run design:preview` draws the portfolio to PNGs and measures each picture before any deal. It reports

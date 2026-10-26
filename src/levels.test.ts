@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { dealFor, missBy } from './bake.ts';
+import { missBy } from './bake.ts';
 import { measure, replay } from './generator.ts';
 import levelsFile from './levels.json';
-import { BLOCKS, CASUAL_GAMES, MAX_LUCK, bandFor, casualFit, levelId, ruleFor, thinkerFit, type BandRule, type Level } from './levels.ts';
-import { checkOverrides, colourByChar } from './palette.ts';
+import {
+  BAKED_WITHOUT_HOLDOUT,
+  BLOCKS,
+  CASUAL_GAMES,
+  HOLDOUT_CASUAL,
+  MAX_LUCK,
+  bandFor,
+  casualFit,
+  holdsBand,
+  innerCasual,
+  letterMap,
+  levelId,
+  margin,
+  relabel,
+  ruleFor,
+  thinkerFit,
+  type BandRule,
+  type Level,
+} from './levels.ts';
+import { POOL, checkOverrides, colourByChar } from './palette.ts';
 import { paintedPicture, poolPicture } from './picture.ts';
 import { status } from './rules.ts';
 import { SCENES, sceneRows } from './scenes.ts';
@@ -96,13 +114,14 @@ describe('the scene levels', () => {
     }
   });
 
-  it.each(each)('level %i is its scene, dealt as its seed and strength make it', (_, l) => {
+  it.each(each)('level %i is its scene, and its stored pots hold exactly the pixels of each colour', (_, l) => {
     expect(l.rows).toEqual(sceneRows(SCENES[l.number - 1] as (typeof SCENES)[number], l.sceneSeed));
     expect(l.overrides).toEqual(SCENES[l.number - 1]?.overrides);
     checkOverrides(l.rows, l.overrides);
-    const deal = dealFor(poolPicture(l.rows), l.structure, l.seed, l.strength);
-    expect(deal.columns).toEqual(l.columns);
-    expect(deal.knobs).toEqual(l.knobs);
+    const picture = poolPicture(l.rows);
+    const pixels = picture.palette.map((_, c) => picture.cells.filter((x) => x === c).length);
+    const potted = picture.palette.map((_, c) => l.columns.flat().reduce((n, p) => n + (p.colour === c ? p.count : 0), 0));
+    expect(potted).toEqual(pixels);
     expect(l.id).toBe(levelId(l.rows, l.columns, l.structure.buckets));
   });
 
@@ -150,15 +169,71 @@ describe('the scene levels', () => {
       expect(thinkerFit(rule, l.thinkers)).toBe(l.depth);
       expect(l.depth).toBeGreaterThanOrEqual(rule.depth[0]);
       expect(l.depth).toBeLessThanOrEqual(rule.depth[1]);
+      if (l.number > BAKED_WITHOUT_HOLDOUT) expect(l.holdout, 'hold-out measures').toBeDefined();
+      if (l.holdout) expect(holdsBand({ ...l, holdout: l.holdout }), 'casual share in the inner range, and the hold-out games in the band').toBe('in');
     }
     expect(l.luck).toBeLessThanOrEqual(MAX_LUCK);
     expect(l.luck).toBe(Math.round(Math.max(0, l.fullSight - Math.max(...l.thinkers)) * 100) / 100);
   });
 
-  it('measures the very hard level again to exactly the stored casual share', () => {
+  it('measures the very hard level again to exactly the stored casual share, on the bake games and the hold-out games', () => {
     for (const l of levels.filter((x) => x.band === 'very hard')) {
       const m = measure(poolPicture(l.rows), l.columns, l.structure.buckets, CASUAL_GAMES, 'sensible');
       expect(m.wins, `level ${l.number}`).toBe(l.casualWins);
+      if (!l.holdout) continue;
+      const h = measure(poolPicture(l.rows), l.columns, l.structure.buckets, CASUAL_GAMES, 'sensible', undefined, HOLDOUT_CASUAL);
+      expect(h.wins, `level ${l.number} hold-out`).toBe(l.holdout.casualWins);
     }
+  }, 60_000);
+});
+
+describe('a level drawn in other letters', () => {
+  const level = levels[0] as Level;
+  // The letters turned round, and the last of them into a pool letter the level does not use, so colours change
+  // their rank in the pool both among themselves and against a letter new to the picture.
+  const letters = [...new Set(level.rows.join(''))];
+  const unused = POOL.map((c) => c.char).filter((c) => !letters.includes(c));
+  const swapped = Object.fromEntries(letters.map((c, i) => [c, letters[letters.length - 1 - i] as string]));
+  swapped[letters[letters.length - 1] as string] = unused[unused.length - 1] as string;
+  const rows = level.rows.map((r) => [...r].map((c) => swapped[c]).join(''));
+
+  it('is the same pots renumbered, so the same game: the same casual share and the same winning order', () => {
+    const moved = relabel(level, rows);
+    expect(moved.rows).toEqual(rows);
+    expect(moved.columns).not.toEqual(level.columns);
+    expect(moved.columns.map((c) => c.map((p) => p.count))).toEqual(level.columns.map((c) => c.map((p) => p.count)));
+    const picture = poolPicture(rows);
+    expect(measure(picture, moved.columns, moved.structure.buckets, CASUAL_GAMES, 'sensible').wins).toBe(level.casualWins);
+    expect(status(replay(picture, moved.columns, moved.structure.buckets, moved.winningOrder))).toBe('won');
+    expect(moved.id).toBe(levelId(rows, moved.columns, moved.structure.buckets));
   }, 30_000);
+
+  it('is told from a picture whose squares changed: two letters made one, or a square cleared', () => {
+    expect(letterMap(level.rows, rows)).toEqual(swapped);
+    const [a, b] = letters as [string, string];
+    expect(letterMap(level.rows, level.rows.map((r) => r.replaceAll(a, b)))).toBeNull();
+    expect(letterMap(level.rows, [level.rows[0]?.replace(/^./, '.') as string, ...level.rows.slice(1)])).toBeNull();
+    expect(() => relabel(level, level.rows.map((r) => r.replaceAll(a, b)))).toThrow();
+  });
+});
+
+describe('the margin and the hold-out games', () => {
+  it('move the bottom of a casual range up by one standard error and the top down by two, and leave an edge at 0', () => {
+    expect(margin(0)).toBe(0);
+    expect(margin(0.2)).toBeCloseTo(0.0283, 4);
+    expect(innerCasual(ruleFor(88))).toEqual([0.06 + margin(0.06), 0.2 - 2 * margin(0.2)]);
+    const inner = { ...ruleFor(90), casual: innerCasual(ruleFor(90)) };
+    expect(inner.casual).toEqual([0, 0.03 - 2 * margin(0.03)]);
+    expect(casualFit(inner, 1 / CASUAL_GAMES)).toBe('in');
+    expect(casualFit(inner, 2 / CASUAL_GAMES)).toBe('easier');
+  });
+
+  it('hold a level out of its band when the hold-out games say so, though the bake games put it in', () => {
+    const l = { number: 90, casualWins: 1, thinkers: [0, 0, 0.85], holdout: { casualWins: 2, thinkers: [0, 0.05, 0.9] } };
+    expect(holdsBand(l)).toBe('in');
+    expect(holdsBand({ ...l, holdout: { ...l.holdout, casualWins: 6 } })).toBe('easier');
+    expect(holdsBand({ ...l, holdout: { ...l.holdout, thinkers: [0, 0, 0.8, 0.8] } })).toBe('harder');
+    expect(holdsBand({ ...l, holdout: { ...l.holdout, thinkers: [0, 0.2] } })).toBe('easier');
+    expect(holdsBand({ ...l, casualWins: 2 })).toBe('easier');
+  });
 });

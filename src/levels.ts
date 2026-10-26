@@ -8,7 +8,7 @@
 // the pick that decides a game is never a blind guess.
 
 import type { Knobs } from './generator.ts';
-import type { Overrides } from './palette.ts';
+import { CLEAR, POOL, type Overrides } from './palette.ts';
 import type { Pot } from './rules.ts';
 
 export type Band = 'easy' | 'medium' | 'hard' | 'very hard';
@@ -27,6 +27,34 @@ export const THINKER_WINS = 0.9;
 
 /** The most a level's luck may be: what seeing the hidden pots adds to the best thinker's share. */
 export const MAX_LUCK = 0.05;
+
+/**
+ * The first seed of the hold-out games: a deal chosen on casual games 1–200 and thinker games 1–20 is judged
+ * again on casual games 201–400 and thinker games 21–40, which played no part in choosing it.
+ */
+export const HOLDOUT_CASUAL = CASUAL_GAMES + 1;
+export const HOLDOUT_THINKER = THINKER_GAMES + 1;
+
+/** Levels 1 to this were baked before the hold-out games and the margin, and stay as they were baked. */
+export const BAKED_WITHOUT_HOLDOUT = 90;
+
+/**
+ * One standard error of a casual share at an edge of a casual range, over CASUAL_GAMES games (0.012 at 0.03,
+ * 0.028 at 0.2, 0.035 at 0.5); 0 at an edge of 0.
+ */
+export function margin(edge: number): number {
+  return Math.sqrt((edge * (1 - edge)) / CASUAL_GAMES);
+}
+
+/**
+ * A band's casual range with its edges moved inside: the bottom by one margin, the top by two. The top gets more,
+ * since a level too easy for its band is the worse miss, and the casual share a bake chooses a deal on runs low:
+ * levels 60–90 won 3 games of 200 more on the hold-out games than on the bake's, with a spread of 7.
+ */
+export function innerCasual(rule: BandRule): [number, number] {
+  const [lo, hi] = rule.casual;
+  return [lo + margin(lo), hi - 2 * margin(hi)];
+}
 
 export interface BandRule {
   /** The casual share of games won, from (inclusive) and to (exclusive). */
@@ -190,12 +218,78 @@ export interface Level {
   fullSight: number;
   luck: number;
   /**
+   * The same measures on the hold-out games: casual games won of CASUAL_GAMES, and each thinker's share. Every
+   * level after BAKED_WITHOUT_HOLDOUT has them.
+   */
+  holdout?: Holdout;
+  /**
    * Set when no deal fitted the band and this is the closest one found: which bound it misses and by how
    * much. An outlier now and then is accepted; the level still has a winning order and a luck of at most MAX_LUCK.
    */
   misses?: string;
   /** The scene's overrides, set only on a level that has some: how it is painted, never how it is dealt or played. */
   overrides?: Overrides;
+}
+
+export interface Holdout {
+  casualWins: number;
+  thinkers: number[];
+}
+
+/**
+ * Whether a level's measures keep it in its band: its casual share inside the band's inner range, and its
+ * hold-out games in the band at a depth the band allows. Says which way it is off when not.
+ */
+export function holdsBand(l: Pick<Level, 'number' | 'casualWins' | 'thinkers'> & { holdout: Holdout }): 'in' | 'easier' | 'harder' {
+  const rule = ruleFor(l.number);
+  const inner = casualFit({ ...rule, casual: innerCasual(rule) }, l.casualWins / CASUAL_GAMES);
+  if (inner !== 'in') return inner;
+  const casual = casualFit(rule, l.holdout.casualWins / CASUAL_GAMES);
+  if (casual !== 'in') return casual;
+  const depth = thinkerFit(rule, l.holdout.thinkers);
+  return typeof depth === 'number' ? 'in' : depth;
+}
+
+/** The pool letters a picture's rows use, in pool order: letter i is colour i of the picture. */
+function lettersOf(rows: readonly string[]): string[] {
+  return POOL.map((c) => c.char).filter((ch) => rows.some((r) => r.includes(ch)));
+}
+
+/**
+ * The letter each letter of `from` becomes in `to`, when `to` is `from` square for square with its letters
+ * swapped one for one; null when the squares differ in any other way.
+ */
+export function letterMap(from: readonly string[], to: readonly string[]): Record<string, string> | null {
+  if (from.length !== to.length) return null;
+  const map: Record<string, string> = {};
+  const back: Record<string, string> = {};
+  for (let y = 0; y < from.length; y++) {
+    const a = from[y] as string;
+    const b = to[y] as string;
+    if (a.length !== b.length) return null;
+    for (let x = 0; x < a.length; x++) {
+      const p = a[x] as string;
+      const q = b[x] as string;
+      if ((p === CLEAR) !== (q === CLEAR) || (map[p] ?? q) !== q || (back[q] ?? p) !== p) return null;
+      map[p] = q;
+      back[q] = p;
+    }
+  }
+  return map;
+}
+
+/**
+ * A level drawn in other letters: the same squares, the same pots and the same game, each pot's colour
+ * renumbered to its letter's number in the new rows. The measures stay, since no player sees a colour's
+ * number. Throws when the new rows are not the level's rows with letters swapped one for one.
+ */
+export function relabel(level: Level, rows: string[]): Level {
+  const map = letterMap(level.rows, rows);
+  if (!map) throw new Error(`level ${level.number}: the new rows are not its rows in other letters`);
+  const before = lettersOf(level.rows);
+  const after = lettersOf(rows);
+  const columns = level.columns.map((c) => c.map((p) => ({ ...p, colour: after.indexOf(map[before[p.colour] as string] as string) })));
+  return { ...level, id: levelId(rows, columns, level.structure.buckets), rows, columns };
 }
 
 /** FNV-1a over the picture, the deal and the buckets, as 8 hex digits. */

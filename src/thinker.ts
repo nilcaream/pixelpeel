@@ -64,10 +64,10 @@ export function thinkerPick(b: Board, t: Thinker, rng: Rng): number {
   return tied[Math.floor(rng() * tied.length)] as number;
 }
 
-/** The share of `games` games a thinker wins, seeds 1 to games. */
-export function thinkerShare(picture: Picture, columns: Pot[][], buckets: number, games: number, t: Thinker): number {
+/** The share of `games` games a thinker wins, seeds `first` to first + games − 1. */
+export function thinkerShare(picture: Picture, columns: Pot[][], buckets: number, games: number, t: Thinker, first = 1): number {
   let wins = 0;
-  for (let seed = 1; seed <= games; seed++) {
+  for (let seed = first; seed < first + games; seed++) {
     const rng = seededRng(seed);
     let b = createBoard(picture, columns, buckets);
     while (status(b) === 'playing') b = (pick(b, thinkerPick(b, t, rng)) as { board: Board }).board;

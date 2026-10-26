@@ -147,9 +147,9 @@ export interface Measure {
 }
 
 /**
- * Plays `playouts` games, seeds 1 to playouts. With a band [lo, hi), it gives up as soon as the share
- * of wins can no longer end inside it and says which side it fell out on; the share it would have
- * measured is exact either way, since every seed is fixed.
+ * Plays `playouts` games, seeds `first` to first + playouts − 1. With a band [lo, hi), it gives up as soon
+ * as the share of wins can no longer end inside it and says which side it fell out on; the share it would
+ * have measured is exact either way, since every seed is fixed.
  */
 export function measure(
   picture: Picture,
@@ -158,19 +158,20 @@ export function measure(
   playouts: number,
   player: Player,
   band?: readonly [number, number],
+  first = 1,
 ): Measure & { outside?: 'easier' | 'harder' } {
   let wins = 0;
   let winning: number[] | null = null;
-  for (let seed = 1; seed <= playouts; seed++) {
-    const game = play(picture, columns, buckets, seed, player);
+  for (let played = 1; played <= playouts; played++) {
+    const game = play(picture, columns, buckets, first + played - 1, player);
     if (game.won) {
       wins += 1;
       winning ??= game.picks;
     }
     if (band) {
-      const left = playouts - seed;
-      if ((wins + left) / playouts < band[0]) return { playouts, played: seed, wins, winning, outside: 'harder' };
-      if (wins / playouts >= band[1]) return { playouts, played: seed, wins, winning, outside: 'easier' };
+      const left = playouts - played;
+      if ((wins + left) / playouts < band[0]) return { playouts, played, wins, winning, outside: 'harder' };
+      if (wins / playouts >= band[1]) return { playouts, played, wins, winning, outside: 'easier' };
     }
   }
   return { playouts, played: playouts, wins, winning };
