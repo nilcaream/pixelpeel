@@ -31,7 +31,7 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
 
 ## Levels
 
-- The pictures are scenes drawn in code (`src/scenes.ts`), in up to 11 colours of one pool of clearly
+- The pictures are scenes drawn in code (`src/scenes.ts`), in colours of one pool of clearly
   different colours (`src/palette.ts`). A scene fills its whole rectangle, gives each area two tones
   dithered together, and nests small things in big ones. At least three colours touch its edge, so no
   single colour is the only way in. Levels 1–20 are 32×24; from level 21 the scenes are 40×30, with room

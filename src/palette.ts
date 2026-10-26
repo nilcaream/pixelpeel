@@ -35,9 +35,6 @@ export const PAGE = '#1c1c22';
 /** The least CIEDE2000 distance between two colours of the pool, and between a colour and the page. */
 export const MIN_DELTA_E = 20;
 
-/** The most colours one level may use. */
-export const MAX_COLOURS = 11;
-
 export function colourByChar(char: string): Colour {
   const c = POOL.find((p) => p.char === char);
   if (!c) throw new Error(`'${char}' is not a colour of the pool`);

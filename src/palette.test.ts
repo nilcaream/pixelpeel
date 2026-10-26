@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_COLOURS, MIN_DELTA_E, PAGE, POOL, deltaE, hexToLab } from './palette.ts';
+import { MIN_DELTA_E, PAGE, POOL, deltaE, hexToLab } from './palette.ts';
 
 describe('palette', () => {
   it('computes CIEDE2000 as the published test pairs give it', () => {
@@ -22,9 +22,8 @@ describe('palette', () => {
     for (const c of POOL) expect(deltaE(hexToLab(c.hex), hexToLab(PAGE)), c.name).toBeGreaterThanOrEqual(MIN_DELTA_E);
   });
 
-  it('gives every colour its own name and letter, and has room for a full level', () => {
+  it('gives every colour its own name and letter', () => {
     expect(new Set(POOL.map((c) => c.char)).size).toBe(POOL.length);
     expect(new Set(POOL.map((c) => c.name)).size).toBe(POOL.length);
-    expect(POOL.length).toBeGreaterThanOrEqual(MAX_COLOURS);
   });
 });

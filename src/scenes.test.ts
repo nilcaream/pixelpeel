@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { CLEAR, MAX_COLOURS, POOL } from './palette.ts';
+import { CLEAR, POOL } from './palette.ts';
 import { LARGE, SCENE_HEIGHT, SCENE_WIDTH, SCENES, edgeColours, sceneRows } from './scenes.ts';
 
 describe('the scenes', () => {
-  it.each(SCENES.map((s) => [s.title, s] as const))('%s fills its whole rectangle in pool colours, at most MAX_COLOURS of them', (_, s) => {
+  it.each(SCENES.map((s) => [s.title, s] as const))('%s fills its whole rectangle in pool colours', (_, s) => {
     const rows = sceneRows(s, 1);
     expect(rows).toHaveLength(s.height ?? SCENE_HEIGHT);
     for (const r of rows) expect(r).toHaveLength(s.width ?? SCENE_WIDTH);
     const chars = new Set(rows.join(''));
     expect(chars.has(CLEAR)).toBe(false);
     for (const c of chars) expect(POOL.some((p) => p.char === c), `'${c}'`).toBe(true);
-    expect(chars.size).toBeLessThanOrEqual(MAX_COLOURS);
   });
 
   it.each(SCENES.map((s) => [s.title, s] as const))('%s has at least three colours on its edge, so no one colour is the only way in', (_, s) => {
