@@ -34,10 +34,23 @@
         <h2>Levels</h2>
         <div id="menu-levels"></div>
         <button id="menu-clear" type="button">Clear progress</button>
+        <label id="menu-log"><input id="menu-log-toggle" type="radio" /> Solve log</label>
+        <button id="menu-share" type="button" hidden>Share solve log</button>
         <label id="menu-dev" hidden><input id="menu-dev-toggle" type="checkbox" /> Dev mode</label>
         <select id="level-chooser" aria-label="Any level" hidden></select>
         <a id="menu-github" href="https://github.com/nilcaream/pixelpeel" target="_blank" rel="noopener">Pixel Peel on GitHub</a>
         <p id="menu-version"></p>
+      </div>
+    </div>
+    <div id="share" hidden>
+      <div class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="share-title">
+        <header>
+          <h1 id="share-title">Solve log</h1>
+          <button id="share-close" type="button" aria-label="Close">x</button>
+        </header>
+        <p>Please share the solve log with <span class="email">nil.caream@gmail.com</span>.</p>
+        <p>It holds only how the levels were played: the game's version, each level, the columns picked in order, how each attempt ended and how many attempts it took. No personal data, nothing about your device, and nothing about when or how long you played.</p>
+        <button id="share-send" type="button">Share</button>
       </div>
     </div>
     <div id="end" hidden>

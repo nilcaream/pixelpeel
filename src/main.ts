@@ -17,6 +17,7 @@ import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type
 import { relayoutWhenShown } from './relayout.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
+import { solveLog } from './solvelog.ts';
 import { keepUpdated } from './update.ts';
 import './style.css';
 
@@ -50,6 +51,7 @@ const endButton = document.getElementById('end-button') as HTMLButtonElement;
 
 const store = browserStore();
 let progress: Progress = loadProgress(store);
+const log = solveLog(store, __APP_VERSION__);
 let level: Level | null = null;
 let picture: Picture;
 let picks: number[] = [];
@@ -87,6 +89,7 @@ function open(): void {
   pickedSinceOpen = false;
   board = replay(picture, level.columns, level.structure.buckets, picks);
   scene = createScene(board);
+  log.open(level.number, level.id, picks);
   progress = { ...progress, run: { id: level.id, picks } };
   saveProgress(store, progress);
   resize();
@@ -257,6 +260,8 @@ function play(column: number): void {
   board = r.board;
   scene = place(scene, r.pot, r.lifts);
   saveProgress(store, progress);
+  const s = status(board);
+  log.pick(picks, s === 'won' ? 'w' : s === 'stuck' ? 's' : undefined);
 }
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -326,11 +331,61 @@ function showMenu(shown: boolean): void {
       }),
     );
   }
+  showLog();
   menu.hidden = !shown;
   menuButton.setAttribute('aria-expanded', String(shown));
   unarm();
   if (!shown) reloadIfSafe();
 }
+
+// The solve log, off until the player opts in: the radio button switches it on and, tapped again, off, which
+// clears it. Sharing leaves it as it is, as nothing tells whether the file was sent.
+const logToggle = document.getElementById('menu-log-toggle') as HTMLInputElement;
+const shareButton = document.getElementById('menu-share') as HTMLButtonElement;
+const shareBox = document.getElementById('share') as HTMLDivElement;
+function showLog(): void {
+  logToggle.checked = log.enabled();
+  shareButton.hidden = !(log.enabled() && log.hasData());
+}
+logToggle.addEventListener('click', () => {
+  log.setEnabled(!log.enabled());
+  showLog();
+});
+shareButton.addEventListener('click', () => {
+  shareBox.hidden = false;
+});
+(document.getElementById('share-close') as HTMLButtonElement).addEventListener('click', () => {
+  shareBox.hidden = true;
+});
+shareBox.addEventListener('click', (e) => {
+  if (e.target === shareBox) shareBox.hidden = true;
+});
+
+/**
+ * A phone or tablet (its main pointer is a finger) opens the share sheet with the file, where the browser can
+ * share files; anything else downloads it, as does a share that fails for any reason but the player cancelling.
+ */
+async function shareLog(): Promise<void> {
+  const file = new File([log.file()], 'pixelpeel-solve-log.txt', { type: 'text/plain' });
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Pixel Peel solve log' });
+      return;
+    } catch (e) {
+      if ((e as DOMException).name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name;
+  a.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+(document.getElementById('share-send') as HTMLButtonElement).addEventListener('click', () => {
+  shareBox.hidden = true;
+  void shareLog();
+});
 
 menuButton.addEventListener('click', () => showMenu(menu.hidden === true));
 (document.getElementById('menu-close') as HTMLButtonElement).addEventListener('click', () => showMenu(false));
@@ -338,7 +393,9 @@ menu.addEventListener('click', (e) => {
   if (e.target === menu) showMenu(false);
 });
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') showMenu(false);
+  if (e.key !== 'Escape') return;
+  if (!shareBox.hidden) shareBox.hidden = true;
+  else showMenu(false);
 });
 // After the last level there is nothing to play: a tap anywhere opens the menu.
 window.addEventListener('click', (e) => {
@@ -347,7 +404,7 @@ window.addEventListener('click', (e) => {
     finale: !end.hidden && end.dataset.state === 'done',
     menuOpen: !menu.hidden,
     // The end button too: the tap on Next that leads here from the last level must not open the menu.
-    handled: [menu, menuButton, endButton].some((el) => el.contains(target)),
+    handled: [menu, menuButton, endButton, shareBox].some((el) => el.contains(target)),
   };
   if (tapOpensMenu(tap)) showMenu(true);
 });

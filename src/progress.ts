@@ -61,7 +61,7 @@ export function playable(p: Progress, total: number): number[] {
 }
 
 /** The browser's storage, or null where even asking for it throws. */
-export function browserStore(): Store | null {
+export function browserStore(): Storage | null {
   try {
     return window.localStorage;
   } catch {
