@@ -103,9 +103,10 @@ export function perturb(pots: Pot[], columns: number, knobs: Knobs, rng: Rng): P
 /**
  * Who plays a measured game. Random picks any column with pots. Sensible plays by the common-sense rule
  * a careful player keeps: never pick a pot whose colour cannot reach a pixel now; only when every top pot is
- * shut in does it pick one of them at random.
+ * shut in does it pick one of them at random. Sticky taps "next, next, next": the column of its last pick again
+ * while that column's top pot reaches a pixel, with no draw, and otherwise plays as sensible does.
  */
-export type Player = 'random' | 'sensible';
+export type Player = 'random' | 'sensible' | 'sticky';
 
 /** One game by a player whose choices come from the seed. Returns whether it won and its picks. */
 export function play(picture: Picture, columns: Pot[][], buckets: number, seed: number, player: Player): { won: boolean; picks: number[] } {
@@ -114,12 +115,14 @@ export function play(picture: Picture, columns: Pot[][], buckets: number, seed: 
   const picks: number[] = [];
   while (status(b) === 'playing') {
     let open = b.columns.flatMap((c, i) => (c.length ? [i] : []));
-    if (player === 'sensible') {
+    let sensible: number[] = [];
+    if (player !== 'random') {
       const free = reachable(b);
-      const sensible = open.filter((i) => (free[(b.columns[i] as Pot[])[0]?.colour as number] as number) > 0);
+      sensible = open.filter((i) => (free[(b.columns[i] as Pot[])[0]?.colour as number] as number) > 0);
       if (sensible.length) open = sensible;
     }
-    const column = open[Math.floor(rng() * open.length)] as number;
+    const last = picks[picks.length - 1] as number;
+    const column = player === 'sticky' && sensible.includes(last) ? last : (open[Math.floor(rng() * open.length)] as number);
     picks.push(column);
     b = (pick(b, column) as { board: Board }).board;
   }

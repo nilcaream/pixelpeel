@@ -1,8 +1,10 @@
 // Makes one level, offline, from its scene: deals pots, measures the deal, and keeps the first deal that
 // fits the level's band. A deal fits when the solver wins it, the casual share is inside the band by its
 // margin, a thinker on the visible pots wins at the band's depth while shallower thinkers do not, seeing the
-// hidden pots adds no more than MAX_LUCK, and the hold-out games, which played no part in choosing it, keep
-// it in the band. Once baked, the stored deal is the level: nothing deals it again.
+// hidden pots adds no more than MAX_LUCK, the hold-out games, which played no part in choosing it, keep
+// it in the band, no careless player (random, sensible, sticky) wins more than the band's cap, and, medium and
+// harder, no line can lose only from DECIDED_FLOOR of the picture peeled on. A deal that fails one of the last
+// two plays easier than its band. Once baked, the stored deal is the level: nothing deals it again.
 //
 // The knobs turn in this order: the perturbing strength first (up when the deal was too easy, down when
 // too hard), then fewer buckets (5, 4, 3) once the strength alone could not make it hard enough, then the
@@ -10,6 +12,7 @@
 
 import { makePots, measure, perturb, type Knobs } from './generator.ts';
 import {
+  CARELESS_CAP,
   CASUAL_GAMES,
   HOLDOUT_CASUAL,
   HOLDOUT_THINKER,
@@ -28,6 +31,11 @@ import {
   type Holdout,
   type Level,
   type Structure,
+  RANDOM_FIRST,
+  gaugeMisreads,
+  passesGates,
+  type Band,
+  type Gates,
 } from './levels.ts';
 import { poolPicture, type Picture } from './picture.ts';
 import type { Pot } from './rules.ts';
@@ -70,8 +78,33 @@ export function knobsAt(strength: number, pots: number): Knobs {
 }
 
 export type Verdict =
-  | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[]; holdout?: Holdout }
-  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; holdout: Holdout; winningOrder: number[] };
+  | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[]; holdout?: Holdout; gate?: 'careless' | 'decided' }
+  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; holdout: Holdout; gates?: Gates; winningOrder: number[] };
+
+/**
+ * The decided points of a deal: the median, over the sensible player's won games among games 1 to CASUAL_GAMES, of
+ * the share peeled where no line can lose any more, and the same on the winning order; null when it won none. It
+ * needs the exact solver of the design tools, so the bake is handed it rather than importing it.
+ */
+export type DecidedOf = (picture: Picture, columns: Pot[][], buckets: number, winningOrder: number[]) => { decided: number | null; line: number };
+
+/**
+ * The careless players' wins, cheapest first, stopping as soon as one is over the band's cap: the random player on
+ * its own games from RANDOM_FIRST, then the sticky player on the casual games.
+ */
+function carelessOf(picture: Picture, columns: Pot[][], buckets: number, band: Band, casualWins: number): { randomWins: number; stickyWins: number; over: boolean } {
+  const cap = CARELESS_CAP[band];
+  if (cap === undefined) {
+    const randomWins = measure(picture, columns, buckets, CASUAL_GAMES, 'random', undefined, RANDOM_FIRST).wins;
+    return { randomWins, stickyWins: measure(picture, columns, buckets, CASUAL_GAMES, 'sticky').wins, over: false };
+  }
+  // Over the cap is over (cap × games) wins: a share at or above the next win stops the measure.
+  const stop = [0, (Math.floor(cap * CASUAL_GAMES + 1e-9) + 1) / CASUAL_GAMES] as const;
+  const random = measure(picture, columns, buckets, CASUAL_GAMES, 'random', stop, RANDOM_FIRST);
+  if (random.outside === 'easier') return { randomWins: random.wins, stickyWins: 0, over: true };
+  const sticky = measure(picture, columns, buckets, CASUAL_GAMES, 'sticky', stop);
+  return { randomWins: random.wins, stickyWins: sticky.wins, over: sticky.outside === 'easier' || casualWins / CASUAL_GAMES > cap };
+}
 
 /** The thinkers of depth 1, 2, … on the visible pots, from game `first`, until one says the deal is not too hard. */
 function thinkersFor(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule, first: number) {
@@ -99,14 +132,18 @@ export function holdoutOf(picture: Picture, columns: Pot[][], buckets: number, r
 
 /**
  * Measures one deal for a band's rule, cheapest measure first, and stops at the first that rules it out. The
- * casual share must be inside the band by its margin, and the hold-out games must keep the deal in the band.
+ * casual share must be inside the band by its margin, no careless player may win more than the band's cap, the
+ * hold-out games must keep the deal in the band, and, last and dearest, the decided points must reach the floor.
+ * A deal ruled out on a gate plays easier than its band.
  */
-export function judge(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule): Verdict {
+export function judge(picture: Picture, columns: Pot[][], buckets: number, rule: BandRule, band: Band, decidedOf: DecidedOf): Verdict {
   const inner = { ...rule, casual: innerCasual(rule) };
   const casual = measure(picture, columns, buckets, CASUAL_GAMES, 'sensible', inner.casual);
   const casualWins = casual.wins;
   const fit = casual.outside ?? casualFit(inner, casual.wins / CASUAL_GAMES);
   if (fit !== 'in') return { fits: false, why: fit, casualWins, thinkers: [] };
+  const careless = carelessOf(picture, columns, buckets, band, casualWins);
+  if (careless.over) return { fits: false, why: 'easier', gate: 'careless', casualWins, thinkers: [] };
   const { thinkers, depth } = thinkersFor(picture, columns, buckets, rule, 1);
   if (typeof depth !== 'number') return { fits: false, why: depth, casualWins, thinkers };
   const solved = solve(picture, columns, buckets);
@@ -116,7 +153,10 @@ export function judge(picture: Picture, columns: Pot[][], buckets: number, rule:
   if (luck > MAX_LUCK) return { fits: false, why: 'luck', casualWins, thinkers };
   const { holdout, fit: held } = holdoutOf(picture, columns, buckets, rule);
   if (held !== 'in') return { fits: false, why: held, casualWins, thinkers, holdout };
-  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, winningOrder: solved.picks };
+  const { decided, line } = band === 'easy' ? { decided: null, line: null } : decidedOf(picture, columns, buckets, solved.picks);
+  const gates: Gates = { randomWins: careless.randomWins, stickyWins: careless.stickyWins, decided, decidedLine: line };
+  if (passesGates(band, casualWins, gates) !== 'in') return { fits: false, why: 'easier', gate: 'decided', casualWins, thinkers, holdout };
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, gates, winningOrder: solved.picks };
 }
 
 /**
@@ -162,9 +202,15 @@ function judgeClosest(picture: Picture, columns: Pot[][], buckets: number, rule:
  * A stored level judged again on its own deal under its band's rule, for when a rule changes: its hold-out
  * measures in full, and whether it holds its band (`holdsBand`).
  */
-export function rejudge(level: Level): { holdout: Holdout; fit: 'in' | 'easier' | 'harder' } {
-  const { holdout } = holdoutOf(poolPicture(level.rows), level.columns, level.structure.buckets, ruleFor(level.number), true);
-  return { holdout, fit: holdsBand({ ...level, holdout }) };
+export function rejudge(level: Level, decidedOf: DecidedOf): { holdout: Holdout; fit: 'in' | 'easier' | 'harder'; gates: Gates; gatesFit: 'in' | 'careless' | 'decided' } {
+  const picture = poolPicture(level.rows);
+  const { buckets } = level.structure;
+  const { holdout } = holdoutOf(picture, level.columns, buckets, ruleFor(level.number), true);
+  const randomWins = measure(picture, level.columns, buckets, CASUAL_GAMES, 'random', undefined, RANDOM_FIRST).wins;
+  const stickyWins = measure(picture, level.columns, buckets, CASUAL_GAMES, 'sticky').wins;
+  const { decided, line } = level.band === 'easy' ? { decided: null, line: null } : decidedOf(picture, level.columns, buckets, level.winningOrder);
+  const gates: Gates = { randomWins, stickyWins, decided, decidedLine: line };
+  return { holdout, fit: holdsBand({ ...level, holdout }), gates, gatesFit: passesGates(level.band, level.casualWins, gates) };
 }
 
 /** The deal of a level, as its picture, structure, seed and strength make it. */
@@ -180,7 +226,7 @@ const GRID_STRENGTHS = [0.5, 2] as const;
 const GRID_STEP = 0.25;
 const GRID_DEALS = 4;
 
-export function bakeLevel(number: number, log: (line: string) => void = () => {}): Level {
+export function bakeLevel(number: number, decidedOf: DecidedOf, log: (line: string) => void = () => {}): Level {
   const scene = SCENES[number - 1];
   if (!scene) throw new Error(`level ${number} has no scene`);
   const band = bandFor(number);
@@ -193,10 +239,11 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
     const picture = poolPicture(rows);
     const structure: Structure = { ...BASE, buckets };
     const { columns, knobs } = dealFor(picture, structure, seed, strength);
-    const v = verdict ?? judge(picture, columns, buckets, rule);
+    const v = verdict ?? judge(picture, columns, buckets, rule, band, decidedOf);
     log(
       `level ${number} scene seed ${sceneSeed} buckets ${buckets} strength ${strength}: ` +
-        `${v.fits ? 'fits' : v.why}, casual ${v.casualWins}/${CASUAL_GAMES}, thinkers ${v.thinkers.join(' ')}`,
+        `${v.fits ? 'fits' : v.gate ? `${v.why} (${v.gate})` : v.why}, casual ${v.casualWins}/${CASUAL_GAMES}, thinkers ${v.thinkers.join(' ')}` +
+        (v.fits && v.gates ? `, random ${v.gates.randomWins}, sticky ${v.gates.stickyWins}${gaugeMisreads(v.gates.randomWins, v.casualWins) ? ' (the random player beats the casual share)' : ''}` : ''),
     );
     const miss = missBy(rule, v);
     if (miss && (!best.closest || miss.by < best.closest.by)) best.closest = { ...miss, sceneSeed, buckets, seed, strength };
@@ -219,6 +266,7 @@ export function bakeLevel(number: number, log: (line: string) => void = () => {}
           fullSight: v.fullSight,
           luck: v.luck,
           holdout: v.holdout,
+          ...(v.gates && { gates: v.gates }),
           winningOrder: v.winningOrder,
           ...(scene.overrides && { overrides: scene.overrides }),
         }

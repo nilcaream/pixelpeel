@@ -71,6 +71,26 @@ describe('players and measure', () => {
       for (const c of choices(play(HOUSE, shuffled, 4, seed, 'sensible').picks)) expect(c.reaches || !c.any).toBe(true);
   });
 
+  it('has the sticky player pick its last column again whenever that column reaches, and play sensibly otherwise', () => {
+    let kept = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const picks = play(HOUSE, shuffled, 4, seed, 'sticky').picks;
+      const c = choices(picks);
+      picks.forEach((column, i) => {
+        expect(c[i]?.reaches || !c[i]?.any).toBe(true);
+        const last = picks[i - 1];
+        if (last === undefined) return;
+        const b = replay(HOUSE, shuffled, 4, picks.slice(0, i));
+        const top = (b.columns[last] as Pot[])[0];
+        if (top && (reachable(b)[top.colour] as number) > 0) {
+          expect(column, `seed ${seed} pick ${i}`).toBe(last);
+          kept += 1;
+        }
+      });
+    }
+    expect(kept).toBeGreaterThan(0);
+  });
+
   it('has the random player pick shut-in pots while others could reach', () => {
     const all = Array.from({ length: 20 }, (_, i) => choices(play(HOUSE, shuffled, 4, i + 1, 'random').picks)).flat();
     expect(all.some((c) => !c.reaches && c.any)).toBe(true);

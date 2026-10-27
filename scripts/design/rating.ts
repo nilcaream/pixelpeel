@@ -26,11 +26,13 @@
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import levelsFile from '../../src/levels.json' with { type: 'json' };
-import { CASUAL_GAMES, type Band, type Level } from '../../src/levels.ts';
+import { play } from '../../src/generator.ts';
+import { CARELESS_CAP, CASUAL_GAMES, DECIDED_FLOOR, gaugeMisreads, type Band, type Level } from '../../src/levels.ts';
+import type { Picture } from '../../src/picture.ts';
 import { seededRng } from '../../src/rng.ts';
 import type { Pot } from '../../src/rules.ts';
 import { outDir } from './common.ts';
-import { gameOf, Solver, type Game, type Position } from './tree.ts';
+import { Game, gameOf, Solver, type Position } from './tree.ts';
 
 const levels = levelsFile as unknown as Level[];
 const RUN = 3;
@@ -204,6 +206,21 @@ function solverLine(game: Game, solver: Budgeted, picks: number[]): { decided: n
   const line = [game.start()];
   for (const c of picks) line.push(game.pick(line[line.length - 1] as Position, c) as Position);
   return decidedOf(game, solver, line);
+}
+
+/**
+ * The bake's decided floor measures (`DecidedOf` in src/bake.ts): the median decided point of the sensible player's
+ * won games among the casual games, which are `play`'s, and the decided point of the winning order.
+ */
+export function decidedPoints(picture: Picture, columns: Pot[][], buckets: number, winningOrder: number[]): { decided: number | null; line: number } {
+  const game = new Game(picture, columns, buckets);
+  const solver = new Budgeted(game);
+  const won: number[] = [];
+  for (let seed = 1; seed <= CASUAL_GAMES; seed++) {
+    const g = play(picture, columns, buckets, seed, 'sensible');
+    if (g.won) won.push(solverLine(game, solver, g.picks).decided);
+  }
+  return { decided: won.length ? median(won) : null, line: solverLine(game, solver, winningOrder).decided };
 }
 
 const SEED: Record<PlayerName, number> = { U: 1_000_000, S: 0, K: 0 };
@@ -410,16 +427,16 @@ function bandMeasures(r: Row): Record<string, number> {
  * round-3 proposals; caps and floors by band, none on easy). U ≥ S: the random player wins at least as often as
  * the sensible one. Sticky cap: the sticky player's wins. P1: the best careless player's wins. P3: the proved
  * median decided point of the sensible player's wins, and the solver line's. P4: traps per sensible game. P5: the
- * sensible player's share of picks with 1 bucket free.
+ * sensible player's share of picks with 1 bucket free. P1 and P3 are the bake's gates for new levels
+ * (CARELESS_CAP, DECIDED_FLOOR in src/levels.ts); the others are reported only.
  */
 const STICKY_CAP: Partial<Record<Band, number>> = { medium: 0.3, hard: 0.15, 'very hard': 0.05 };
-const CARELESS_CAP: Partial<Record<Band, number>> = { medium: 0.5, hard: 0.2, 'very hard': 0.06 };
-const DECIDED_FLOOR = 0.6;
 const TRAPS_FLOOR: Partial<Record<Band, number>> = { medium: 1.0, hard: 1.3, 'very hard': 1.5 };
 const PRESSURE_FLOOR: Partial<Record<Band, number>> = { hard: 0.1, 'very hard': 0.25 };
 const notEasy = (r: Row) => r.band !== 'easy';
 const RULES: Record<string, (r: Row) => boolean> = {
   'U ≥ S': (r) => r.per.U.win >= r.per.S.win && r.per.U.win > 0,
+  'P2 U > S + 2 SE': (r) => gaugeMisreads(r.per.U.win * CASUAL_GAMES, r.per.S.win * CASUAL_GAMES),
   'sticky over cap': (r) => r.per.K.win > (STICKY_CAP[r.band] ?? 1),
   'P1 max(U,S,K) over cap': (r) => Math.max(r.per.U.win, r.per.S.win, r.per.K.win) > (CARELESS_CAP[r.band] ?? 1),
   'P3 decided S under floor': (r) => notEasy(r) && (r.per.S.decidedMedian ?? NaN) < DECIDED_FLOOR,

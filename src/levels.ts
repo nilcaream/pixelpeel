@@ -39,6 +39,57 @@ export const HOLDOUT_THINKER = THINKER_GAMES + 1;
 export const BAKED_WITHOUT_HOLDOUT = 90;
 
 /**
+ * The most any careless player may win of a level, by band, over CASUAL_GAMES games each: the random player, the
+ * sensible one (the casual share) and the sticky one. None on easy. Each cap sits just under the next easier
+ * band's lower quartile of the same measure over levels 1–90 (easy .57, medium .22); very hard's is its casual
+ * top plus about one standard error. A level a careless player wins more often looks harder than it plays.
+ */
+export const CARELESS_CAP: Partial<Record<Band, number>> = { medium: 0.5, hard: 0.2, 'very hard': 0.06 };
+
+/** The first seed of the random player's games in the careless measure. */
+export const RANDOM_FIRST = 1_000_001;
+
+/**
+ * The least share of the picture peeled, medium and harder, at the point where no line can lose any more: the
+ * median over the sensible player's won games, and on the winning order. A level decided earlier is solved half way.
+ */
+export const DECIDED_FLOOR = 0.6;
+
+/** Levels 1 to this were baked before the careless cap and the decided floor, and stay as they were baked. */
+export const BAKED_WITHOUT_GATES = 90;
+
+/**
+ * The careless players' wins, of CASUAL_GAMES each, and the decided points. A decided point is the latest the
+ * solver proved within its budget, so it is never earlier than the true one. Easy levels have no decided points
+ * (null), and `decided` is null too where the sensible player won none.
+ */
+export interface Gates {
+  randomWins: number;
+  stickyWins: number;
+  decided: number | null;
+  decidedLine: number | null;
+}
+
+/**
+ * Whether the random player beats the sensible one by more than two standard errors of the difference, over
+ * CASUAL_GAMES games each: the casual share then misreads the level. Reported, never a gate.
+ */
+export function gaugeMisreads(randomWins: number, casualWins: number): boolean {
+  const u = randomWins / CASUAL_GAMES;
+  const s = casualWins / CASUAL_GAMES;
+  return u - s > 2 * Math.sqrt((u * (1 - u) + s * (1 - s)) / CASUAL_GAMES);
+}
+
+/** Which gate a level's measures fail, or 'in': the careless cap first, then the decided floor. */
+export function passesGates(band: Band, casualWins: number, g: Gates): 'in' | 'careless' | 'decided' {
+  const cap = CARELESS_CAP[band];
+  if (cap !== undefined && Math.max(g.randomWins, casualWins, g.stickyWins) / CASUAL_GAMES > cap) return 'careless';
+  const early = (x: number | null) => x !== null && x < DECIDED_FLOOR;
+  if (band !== 'easy' && (early(g.decided) || early(g.decidedLine))) return 'decided';
+  return 'in';
+}
+
+/**
  * One standard error of a casual share at an edge of a casual range, over CASUAL_GAMES games (0.012 at 0.03,
  * 0.028 at 0.2, 0.035 at 0.5); 0 at an edge of 0.
  */
@@ -222,6 +273,8 @@ export interface Level {
    * level after BAKED_WITHOUT_HOLDOUT has them.
    */
   holdout?: Holdout;
+  /** What the careless cap and the decided floor measured. Every level after BAKED_WITHOUT_GATES that fits has them. */
+  gates?: Gates;
   /**
    * Set when no deal fitted the band and this is the closest one found: which bound it misses and by how
    * much. An outlier now and then is accepted; the level still has a winning order and a luck of at most MAX_LUCK.

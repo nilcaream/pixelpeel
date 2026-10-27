@@ -3,6 +3,7 @@ import { missBy } from './bake.ts';
 import { measure, replay } from './generator.ts';
 import levelsFile from './levels.json';
 import {
+  BAKED_WITHOUT_GATES,
   BAKED_WITHOUT_HOLDOUT,
   BLOCKS,
   CASUAL_GAMES,
@@ -14,7 +15,9 @@ import {
   innerCasual,
   letterMap,
   levelId,
+  gaugeMisreads,
   margin,
+  passesGates,
   relabel,
   ruleFor,
   thinkerFit,
@@ -171,6 +174,8 @@ describe('the scene levels', () => {
       expect(l.depth).toBeLessThanOrEqual(rule.depth[1]);
       if (l.number > BAKED_WITHOUT_HOLDOUT) expect(l.holdout, 'hold-out measures').toBeDefined();
       if (l.holdout) expect(holdsBand({ ...l, holdout: l.holdout }), 'casual share in the inner range, and the hold-out games in the band').toBe('in');
+      if (l.number > BAKED_WITHOUT_GATES) expect(l.gates, 'careless and decided measures').toBeDefined();
+      if (l.gates) expect(passesGates(l.band, l.casualWins, l.gates), 'under the careless cap and over the decided floor').toBe('in');
     }
     expect(l.luck).toBeLessThanOrEqual(MAX_LUCK);
     expect(l.luck).toBe(Math.round(Math.max(0, l.fullSight - Math.max(...l.thinkers)) * 100) / 100);
@@ -235,5 +240,33 @@ describe('the margin and the hold-out games', () => {
     expect(holdsBand({ ...l, holdout: { ...l.holdout, thinkers: [0, 0, 0.8, 0.8] } })).toBe('harder');
     expect(holdsBand({ ...l, holdout: { ...l.holdout, thinkers: [0, 0.2] } })).toBe('easier');
     expect(holdsBand({ ...l, casualWins: 2 })).toBe('easier');
+  });
+});
+
+describe('the careless cap and the decided floor', () => {
+  const g = { randomWins: 20, stickyWins: 40, decided: 0.7, decidedLine: 0.7 };
+
+  it('fail a level any careless player wins more often than its band allows', () => {
+    expect(passesGates('medium', 60, { ...g, stickyWins: 100 })).toBe('in');
+    expect(passesGates('medium', 60, { ...g, stickyWins: 101 })).toBe('careless');
+    expect(passesGates('medium', 101, g)).toBe('careless');
+    expect(passesGates('hard', 30, { ...g, randomWins: 41 })).toBe('careless');
+    expect(passesGates('very hard', 2, { ...g, randomWins: 0, stickyWins: 12 })).toBe('in');
+    expect(passesGates('very hard', 2, { ...g, randomWins: 0, stickyWins: 13 })).toBe('careless');
+    expect(passesGates('easy', 190, { ...g, randomWins: 200, stickyWins: 200 })).toBe('in');
+  });
+
+  it('fail a level medium or harder that is decided before the floor, by the sensible wins or the winning order', () => {
+    expect(passesGates('hard', 10, { ...g, decided: 0.59 })).toBe('decided');
+    expect(passesGates('hard', 10, { ...g, decidedLine: 0.59 })).toBe('decided');
+    expect(passesGates('very hard', 0, { ...g, randomWins: 0, stickyWins: 0, decided: null })).toBe('in');
+    expect(passesGates('easy', 100, { ...g, decided: 0.3, decidedLine: 0.3 })).toBe('in');
+  });
+
+  it('report a casual share the random player beats by more than two standard errors', () => {
+    // Level 39: random 55 of 200 against sensible 0; level 3: 65 against 40; level 2: 135 against 126.
+    expect(gaugeMisreads(55, 0)).toBe(true);
+    expect(gaugeMisreads(65, 40)).toBe(true);
+    expect(gaugeMisreads(135, 126)).toBe(false);
   });
 });
