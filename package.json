@@ -1,6 +1,6 @@
 {
   "name": "pixelpeel",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "A puzzle in the browser: little dots peel a pixel picture apart, colour by colour, and you choose the order",
   "type": "module",
