@@ -17,6 +17,7 @@ import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type
 import { relayoutWhenShown } from './relayout.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
+import { fileSharer } from './share.ts';
 import { solveLog } from './solvelog.ts';
 import { keepUpdated } from './update.ts';
 import './style.css';
@@ -351,7 +352,21 @@ logToggle.addEventListener('click', () => {
   log.setEnabled(!log.enabled());
   showLog();
 });
+const sharer = fileSharer({
+  coarse: () => matchMedia('(pointer: coarse)').matches,
+  canShare: navigator.canShare?.bind(navigator),
+  share: navigator.share?.bind(navigator),
+  download(file) {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+});
 shareButton.addEventListener('click', () => {
+  sharer.prepare(new File([log.file()], 'pixelpeel-solve-log.txt', { type: 'text/plain' }));
   shareBox.hidden = false;
 });
 (document.getElementById('share-close') as HTMLButtonElement).addEventListener('click', () => {
@@ -361,30 +376,11 @@ shareBox.addEventListener('click', (e) => {
   if (e.target === shareBox) shareBox.hidden = true;
 });
 
-/**
- * A phone or tablet (its main pointer is a finger) opens the share sheet with the file, where the browser can
- * share files; anything else downloads it, as does a share that fails for any reason but the player cancelling.
- */
-async function shareLog(): Promise<void> {
-  const file = new File([log.file()], 'pixelpeel-solve-log.txt', { type: 'text/plain' });
-  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Pixel Peel solve log' });
-      return;
-    } catch (e) {
-      if ((e as DOMException).name === 'AbortError') return;
-    }
-  }
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// The dialog stays until the share sheet closes, so a sheet slow to appear does not look like a lost tap.
 (document.getElementById('share-send') as HTMLButtonElement).addEventListener('click', () => {
-  shareBox.hidden = true;
-  void shareLog();
+  void sharer.send().then(() => {
+    shareBox.hidden = true;
+  });
 });
 
 menuButton.addEventListener('click', () => showMenu(menu.hidden === true));
