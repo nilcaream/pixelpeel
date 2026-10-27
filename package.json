@@ -18,7 +18,8 @@
     "design:gallery": "node scripts/design/gallery.ts",
     "design:rows": "node scripts/design/rows-check.ts",
     "design:palette": "node scripts/design/palette.ts",
-    "design:pressure": "node scripts/design/pressure.ts"
+    "design:pressure": "node scripts/design/pressure.ts",
+    "design:tree": "node --max-old-space-size=16000 scripts/design/tree.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
