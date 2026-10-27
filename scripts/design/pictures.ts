@@ -62,6 +62,18 @@ export const SUBJECT: Record<string, [string, [number, number, number, number]][
   'Mandarin fish on a reef': [['bogyrwc', [4, 2, 38, 25]]],
   'Lion resting at dusk': [['onyrwkc', [0, 4, 39, 27]]],
   'Kingfisher diving': [['bsowc', [0, 0, 39, 25]], ['wc', [13, 26, 26, 29]]],
+  // The window: its stone surround, the lead, the glass and the dove (its grey feathers and beak in its own box).
+  'Stained glass window with a dove': [['cyrbspgdw', [5, 0, 34, 28]], ['eo', [12, 6, 27, 19]]],
+  // The wing and the body at its root; the leaf's yellow specks outside the wing are left out.
+  'Butterfly wing close-up': [['cnorbe', [0, 0, 37, 29]], ['wy', [2, 3, 32, 26]]],
+  'Clownfish in an anemone': [['owc', [8, 5, 33, 20]], ['pkr', [3, 2, 37, 29]]],
+  'Ring nebula in infrared': [['wsbyornpk', [2, 0, 37, 29]]],
+  'Starfish in a rock pool': [['ory', [4, 0, 36, 29]], ['pkc', [0, 0, 39, 29]]],
+  'Leopard on a branch at dusk': [['yowkgc', [6, 8, 39, 16]], ['yowkgc', [28, 6, 38, 8]], ['yo', [5, 17, 28, 27]], ['c', [5, 22, 28, 27]], ['nc', [7, 15, 39, 22]]],
+  'Coral snake among autumn leaves': [['ryc', [0, 1, 33, 29]]],
+  'Harbour fireworks': [['yowpkrgw', [0, 0, 39, 19]], ['e', [4, 9, 37, 20]], ['nw', [16, 20, 25, 28]], ['yokr', [0, 21, 39, 29]]],
+  'Toucan on a mossy branch': [['cebowyr', [3, 1, 39, 29]], ['no', [0, 20, 39, 27]]],
+  'Bees on the comb': [['cnywse', [8, 6, 30, 24]], ['cnyws', [28, 0, 39, 8]], ['cnyws', [27, 20, 39, 29]]],
 };
 
 /** A remix's title → the title of the shipped picture it was drawn from. */
@@ -78,7 +90,13 @@ export const REMIX: Record<string, string> = {
   'Volcano erupting at night': 'Volcano island',
   'Rabbit in the snow at dusk': 'Rabbit in a meadow',
   'Treehouse in autumn at dusk': 'Treehouse in an oak',
+  'Stained glass window with a dove': 'Stained glass rose window',
+  'Butterfly wing close-up': 'Peacock feather close-up',
+  'Clownfish in an anemone': 'Mandarin fish on a reef',
+  'Ring nebula in infrared': 'Nebula pillars in infrared',
+  'Starfish in a rock pool': 'Octopus in a rock pool',
+  'Leopard on a branch at dusk': 'Lion resting at dusk',
 };
 
 /** Pictures alike enough that two of them are never played back to back. */
-export const APART: readonly (readonly string[])[] = [['Spiral galaxy in infrared', 'Nebula pillars in infrared']];
+export const APART: readonly (readonly string[])[] = [['Spiral galaxy in infrared', 'Nebula pillars in infrared', 'Ring nebula in infrared']];
