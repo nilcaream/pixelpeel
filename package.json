@@ -17,7 +17,8 @@
     "design:preview": "node scripts/design/preview.ts",
     "design:gallery": "node scripts/design/gallery.ts",
     "design:rows": "node scripts/design/rows-check.ts",
-    "design:palette": "node scripts/design/palette.ts"
+    "design:palette": "node scripts/design/palette.ts",
+    "design:pressure": "node scripts/design/pressure.ts"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

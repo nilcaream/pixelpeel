@@ -120,6 +120,10 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
     `npm run design:gallery -- out/order.json` draws every level in order.
   - `npm run design:rows -- dump|check` holds the pictures to their letters across a change to the drawing code.
   - `npm run design:palette -- near|search|census|check|recolour` is for choosing and checking colours.
+  - `npm run design:pressure -- measure 60-90`, then `-- table`, measures what a level asks of a player's nerve
+    and gives away: picks that hold a bucket because their colour cannot be reached yet, the free buckets left
+    at each pick, and runs of picks down one column that each lift pixels, along the solver's line and in the
+    play of the sensible player, a player who keeps to one column, and the thinker.
 - Dev mode is for trying levels. The menu offers it only when the page is opened at exactly `127.0.0.1`
   (for example `npm run dev`), never anywhere else. Once it is on, it stays on there, and the menu shows a
   list of every level with its band, depth and casual win rate. On that host, `?level=N` opens level N.
