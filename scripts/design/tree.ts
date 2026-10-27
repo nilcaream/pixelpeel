@@ -502,7 +502,7 @@ export async function explore(
 export type Weighting = 'U' | 'S';
 
 /** The picks a player of the weighting chooses among at a position: a bit per column. */
-function choices(t: Tree, at: number, w: Weighting): number {
+export function choices(t: Tree, at: number, w: Weighting): number {
   let open = 0;
   for (let c = 0; c < t.columns; c++) if ((t.child[at * t.columns + c] as number) >= 0) open |= 1 << c;
   if (w === 'U') return open;

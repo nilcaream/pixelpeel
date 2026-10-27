@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import levelsFile from '../../src/levels.json' with { type: 'json' };
 import type { Level } from '../../src/levels.ts';
 import { poolPicture } from '../../src/picture.ts';
-import { Budgeted, sample } from './rating.ts';
+import { Budgeted, sample, spearman } from './rating.ts';
 import { explore, Game, gameOf, solve } from './tree.ts';
 
 // A ring of yellow and blue round a core of red and green, 2 buckets: 84 positions, the random player wins 18.5%
@@ -52,5 +52,12 @@ describe('sampled games', () => {
     const solver = new Budgeted(game);
     expect(solver.within(10, () => solver.allWin(game.start()))).toBeNull();
     expect(solver.within(Infinity, () => solver.winnable(game.start()))).toBe(true);
+  });
+});
+
+describe('spearman', () => {
+  it('gives tied values the mean of their ranks', () => {
+    expect(spearman([1, 2, 2, 3], [1, 2, 3, 4])).toBeCloseTo(4.5 / Math.sqrt(22.5), 9);
+    expect(spearman([3, 2, 1], [1, 2, 3])).toBeCloseTo(-1, 9);
   });
 });

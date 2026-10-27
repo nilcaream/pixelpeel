@@ -4,6 +4,9 @@
 //
 //   npm run design:rating -- measure 1-90 [--games 200]   measure the stored levels, one file each under out/rating/
 //   npm run design:rating -- table                        a row per measured level, then the medians per band
+//   npm run design:rating -- bands                        per measure its Spearman with the band and quartiles per
+//                                                         band; per proposed rule, the levels it flags
+//   --dir D                                               read and write D instead of out/rating
 //
 // Players, each on games 1 to --games:
 //   - U: any column with pots, equally likely (seeds from 1 000 001).
@@ -350,12 +353,117 @@ function measures(r: Row): Record<string, number> {
   return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v ?? NaN]));
 }
 
+/** Ranks from 0, ties sharing the mean of their ranks. */
+function ranks(v: number[]): number[] {
+  const order = v.map((x, i) => [x, i] as const).sort((a, b) => a[0] - b[0]);
+  const r = new Array<number>(v.length);
+  for (let i = 0; i < order.length; ) {
+    let j = i;
+    while (j + 1 < order.length && (order[j + 1] as readonly [number, number])[0] === (order[i] as readonly [number, number])[0]) j++;
+    for (let k = i; k <= j; k++) r[(order[k] as readonly [number, number])[1]] = (i + j) / 2;
+    i = j + 1;
+  }
+  return r;
+}
+
+/** Spearman's rank correlation of two lists of the same length: Pearson's on their ranks. */
+export function spearman(xs: number[], ys: number[]): number {
+  const a = ranks(xs);
+  const b = ranks(ys);
+  const ma = a.reduce((s, x) => s + x, 0) / a.length;
+  const mb = b.reduce((s, x) => s + x, 0) / b.length;
+  let num = 0;
+  let da = 0;
+  let db = 0;
+  for (let i = 0; i < a.length; i++) {
+    num += ((a[i] as number) - ma) * ((b[i] as number) - mb);
+    da += ((a[i] as number) - ma) ** 2;
+    db += ((b[i] as number) - mb) ** 2;
+  }
+  return num / Math.sqrt(da * db);
+}
+
+/** The value at share p of the sorted known values, between two neighbours by linear interpolation. */
+function quantile(v: number[], p: number): number {
+  const s = v.filter((x) => !Number.isNaN(x)).sort((a, b) => a - b);
+  if (!s.length) return NaN;
+  const i = (s.length - 1) * p;
+  const lo = s[Math.floor(i)] as number;
+  return lo + ((s[Math.ceil(i)] as number) - lo) * (i - Math.floor(i));
+}
+
+/** The measures of a row the band analysis looks at: the table's, and four made of them. */
+function bandMeasures(r: Row): Record<string, number> {
+  const m = measures(r);
+  const { U, S, K } = r.per;
+  return {
+    ...m,
+    'K−S': K.win - S.win,
+    'max(U,S,K)': Math.max(U.win, S.win, K.win),
+    'traps S × fall': S.trapsPerGame * S.fallChance,
+    '1 free S × buckets': (S.freeShare[1] as number) * r.buckets,
+  };
+}
+
+/**
+ * Rules a level of a band could be held to, each a test it fails when it plays easier than its band says (the
+ * round-3 proposals; caps and floors by band, none on easy). U ≥ S: the random player wins at least as often as
+ * the sensible one. Sticky cap: the sticky player's wins. P1: the best careless player's wins. P3: the proved
+ * median decided point of the sensible player's wins, and the solver line's. P4: traps per sensible game. P5: the
+ * sensible player's share of picks with 1 bucket free.
+ */
+const STICKY_CAP: Partial<Record<Band, number>> = { medium: 0.3, hard: 0.15, 'very hard': 0.05 };
+const CARELESS_CAP: Partial<Record<Band, number>> = { medium: 0.5, hard: 0.2, 'very hard': 0.06 };
+const DECIDED_FLOOR = 0.6;
+const TRAPS_FLOOR: Partial<Record<Band, number>> = { medium: 1.0, hard: 1.3, 'very hard': 1.5 };
+const PRESSURE_FLOOR: Partial<Record<Band, number>> = { hard: 0.1, 'very hard': 0.25 };
+const notEasy = (r: Row) => r.band !== 'easy';
+const RULES: Record<string, (r: Row) => boolean> = {
+  'U ≥ S': (r) => r.per.U.win >= r.per.S.win && r.per.U.win > 0,
+  'sticky over cap': (r) => r.per.K.win > (STICKY_CAP[r.band] ?? 1),
+  'P1 max(U,S,K) over cap': (r) => Math.max(r.per.U.win, r.per.S.win, r.per.K.win) > (CARELESS_CAP[r.band] ?? 1),
+  'P3 decided S under floor': (r) => notEasy(r) && (r.per.S.decidedMedian ?? NaN) < DECIDED_FLOOR,
+  'P3 decided line under floor': (r) => notEasy(r) && (r.solverLine.decided ?? NaN) < DECIDED_FLOOR,
+  'P4 traps S under floor': (r) => r.per.S.trapsPerGame < (TRAPS_FLOOR[r.band] ?? 0),
+  'P5 1 free S under floor': (r) => (r.per.S.freeShare[1] as number) < (PRESSURE_FLOOR[r.band] ?? 0),
+};
+
+/** Per measure, Spearman with the band and quartiles per band; per rule, the levels it flags. */
+function bands(rows: Row[]): void {
+  const f = (x: number) => (Number.isNaN(x) ? '–' : x.toFixed(2));
+  console.log('measure | Spearman with band (levels) | per band, easy | medium | hard | very hard: q25 / median / q75');
+  for (const k of Object.keys(bandMeasures(rows[0] as Row))) {
+    const pairs = rows.map((r) => [bandMeasures(r)[k] as number, BANDS.indexOf(r.band)] as const).filter(([x]) => !Number.isNaN(x));
+    const per = BANDS.map((b) => {
+      const v = rows.filter((r) => r.band === b).map((r) => bandMeasures(r)[k] as number);
+      return [0.25, 0.5, 0.75].map((p) => f(quantile(v, p))).join('/');
+    });
+    console.log(`${k} | ${spearman(pairs.map((p) => p[0]), pairs.map((p) => p[1])).toFixed(2)} (${pairs.length}) | ${per.join(' | ')}`);
+  }
+  console.log('\nrule | levels flagged, easy / medium / hard / very hard');
+  for (const [k, fails] of Object.entries(RULES))
+    console.log(`${k} | ${BANDS.map((b) => rows.filter((r) => r.band === b && fails(r)).map((r) => r.number).join(',') || '–').join(' / ')}`);
+  console.log('\nlevels failing any rule');
+  for (const b of BANDS) {
+    const of = rows.filter((r) => r.band === b);
+    const bad = of.map((r) => [r.number, Object.keys(RULES).filter((k) => (RULES[k] as (r: Row) => boolean)(r))] as const).filter(([, ks]) => ks.length);
+    console.log(`${b} (${of.length}): ${bad.length} — ${bad.map(([n, ks]) => `${n} [${ks.join('; ')}]`).join(', ')}`);
+  }
+}
+
 function main(argv: string[]): void {
   const [command, arg = ''] = argv;
   const flag = argv.indexOf('--games');
   const games = flag >= 0 ? Number(argv[flag + 1]) : CASUAL_GAMES;
-  const dir = outDir('rating');
-  if (command === 'measure') {
+  const dirFlag = argv.indexOf('--dir');
+  const dir = dirFlag >= 0 ? (argv[dirFlag + 1] as string) : outDir('rating');
+  const read = () =>
+    readdirSync(dir)
+      .filter((f) => /^\d+\.json$/.test(f))
+      .map((f) => JSON.parse(readFileSync(`${dir}/${f}`, 'utf8')) as Row)
+      .sort((a, b) => a.number - b.number);
+  if (command === 'bands') bands(read());
+  else if (command === 'measure') {
     for (const n of range(arg)) {
       const l = levels.find((x) => x.number === n);
       if (!l) throw new Error(`no level ${n}`);
@@ -365,10 +473,7 @@ function main(argv: string[]): void {
       console.log(`level ${n} in ${Math.round((Date.now() - started) / 1000)} s, ${row.positionsSolved} positions solved`);
     }
   } else if (command === 'table') {
-    const rows = readdirSync(dir)
-      .filter((f) => /^\d+\.json$/.test(f))
-      .map((f) => JSON.parse(readFileSync(`${dir}/${f}`, 'utf8')) as Row)
-      .sort((a, b) => a.number - b.number);
+    const rows = read();
     const names = Object.keys(measures(rows[0] as Row));
     const f = (x: number) => (Number.isNaN(x) ? '–' : Number.isInteger(x) ? String(x) : x.toFixed(2));
     console.log(['level', 'band', ...names].join(' | '));
@@ -379,7 +484,7 @@ function main(argv: string[]): void {
       const of = rows.filter((r) => r.band === band).map(measures);
       if (of.length) console.log([band, of.length, ...names.map((k) => f(median(of.map((m) => m[k] as number))))].join(' | '));
     }
-  } else throw new Error('usage: rating.ts measure 1-90 [--games N] | table');
+  } else throw new Error('usage: rating.ts measure 1-90 [--games N] | table | bands  [--dir D]');
 }
 
 if (import.meta.main) main(process.argv.slice(2));
