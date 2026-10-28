@@ -4,7 +4,11 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { inject, precache } from './src/precache.ts';
 
-const VERSION = (JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }).version;
+// Both are set at the release commit: the build is the same whenever it is made.
+const { version: VERSION, releaseDate: RELEASE_DATE } = JSON.parse(readFileSync('package.json', 'utf8')) as {
+  version: string;
+  releaseDate: string;
+};
 
 /** Every file under a directory, by its path relative to it. */
 function filesUnder(dir: string): string[] {
@@ -34,7 +38,7 @@ function serviceWorker(): Plugin {
 }
 
 export default defineConfig({
-  define: { __APP_VERSION__: JSON.stringify(VERSION) },
+  define: { __APP_VERSION__: JSON.stringify(VERSION), __RELEASE_DATE__: JSON.stringify(RELEASE_DATE) },
   plugins: [serviceWorker()],
   server: { host: '127.0.0.1' },
   build: { target: 'es2022' },

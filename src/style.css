@@ -236,7 +236,7 @@ body {
 
 /*
  * The menu is 296 px inside on a 360 px phone. Title: "Pixel Peel" 10 × 16 = 160 of the 224 px between
- * the columns; "Clear progress" 14 × 14 = 196 px; "Pixel Peel on GitHub" 20 × 12 = 240 px.
+ * the columns; "Clear progress" 14 × 14 = 196 px; "Nil Caream GitHub" 17 × 12 = 204 px.
  */
 .menu-panel h1 {
   grid-column: 2;
@@ -265,12 +265,20 @@ body {
   font-size: 16px;
 }
 
+/*
+ * When the panel reaches the screen's height, only the levels scroll: the panel's other rows keep their
+ * height, and this one gives up what is missing. No scroll bar: a desktop's would take its width from the
+ * squares, and the row cut at the edge shows there is more.
+ */
 #menu-levels {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   /* Room for the 3 px edges between the squares. */
   gap: 12px;
   padding: 3px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 /* A square is 48 px at 360; "10" is 32 px. */
@@ -349,33 +357,6 @@ body {
     inset 0 0 0 4px #2a2a33;
 }
 
-#menu-log {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--pixel-font);
-  font-size: 12px;
-}
-
-/* A round pixel dot, filled green when on: the one radio button, which a second tap switches off. */
-#menu-log input {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  margin: 3px;
-  border-radius: 50%;
-  background: #2a2a33;
-  box-shadow: 0 0 0 3px #5a5a68;
-  cursor: pointer;
-}
-
-#menu-log input:checked {
-  background: #8bc34a;
-  box-shadow:
-    0 0 0 3px #5a5a68,
-    inset 0 0 0 4px #2a2a33;
-}
-
 #menu-share,
 #share-send {
   margin: 0 3px;
@@ -416,10 +397,12 @@ body {
   font-size: 12px;
   line-height: 1.6;
   color: #4fc3f7;
+  text-align: center;
 }
 
 #menu-version {
   margin: 0;
+  text-align: center;
   font-family: var(--pixel-font);
   font-size: 10px;
   color: #9a9aa6;

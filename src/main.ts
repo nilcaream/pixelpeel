@@ -14,7 +14,7 @@ import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
 import { paintedPicture, type Picture } from './picture.ts';
 import { FINALE_TEXT, tapOpensMenu } from './finale.ts';
 import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
-import { relayoutWhenShown } from './relayout.ts';
+import { relayoutWhenShown, sharpCanvas } from './relayout.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
 import { fileSharer } from './share.ts';
@@ -23,6 +23,7 @@ import { keepUpdated } from './update.ts';
 import './style.css';
 
 declare const __APP_VERSION__: string;
+declare const __RELEASE_DATE__: string;
 
 /** How many cells a dot moves per second; a constant to tune. */
 const STEPS_PER_SECOND = 10;
@@ -37,6 +38,7 @@ const LEVELS = levelsFile as unknown as Level[];
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+const sharp = sharpCanvas(canvas, ctx);
 const levelNumber = document.getElementById('level-number') as HTMLSpanElement;
 const levelName = document.getElementById('level-name') as HTMLSpanElement;
 const levelBand = document.getElementById('level-band') as HTMLSpanElement;
@@ -117,9 +119,7 @@ function resize(): void {
   const w = box.width;
   const h = box.height;
   view = { width: w, height: h };
-  canvas.width = Math.round(w * dpr);
-  canvas.height = Math.round(h * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  sharp.fit(w, h, dpr);
   if (level) {
     layout = measure(w, h, { width: scene.width, height: scene.height, buckets: scene.slots.length, columns: board.columns.length, visible: VISIBLE });
   }
@@ -163,6 +163,7 @@ function drawPot(x: number, y: number, size: number, colour: string, n: number):
 }
 
 function draw(frac: number): void {
+  sharp.frame();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!level) return;
   const { left, top, cell } = layout;
@@ -332,26 +333,23 @@ function showMenu(shown: boolean): void {
       }),
     );
   }
-  showLog();
+  shareButton.hidden = !log.hasData();
   menu.hidden = !shown;
+  if (shown) scrollLevels();
   menuButton.setAttribute('aria-expanded', String(shown));
   unarm();
   if (!shown) reloadIfSafe();
 }
 
-// The solve log, off until the player opts in: the radio button switches it on and, tapped again, off, which
-// clears it. Sharing leaves it as it is, as nothing tells whether the file was sent.
-const logToggle = document.getElementById('menu-log-toggle') as HTMLInputElement;
+/** Where the levels open in the menu: scrolled to the end, so the last levels are in sight. */
+function scrollLevels(): void {
+  menuLevels.scrollTop = menuLevels.scrollHeight;
+}
+
+// The solve log, always kept, can be shared from the menu. Sharing leaves it as it is, as nothing tells
+// whether the file was sent.
 const shareButton = document.getElementById('menu-share') as HTMLButtonElement;
 const shareBox = document.getElementById('share') as HTMLDivElement;
-function showLog(): void {
-  logToggle.checked = log.enabled();
-  shareButton.hidden = !(log.enabled() && log.hasData());
-}
-logToggle.addEventListener('click', () => {
-  log.setEnabled(!log.enabled());
-  showLog();
-});
 const sharer = fileSharer({
   coarse: () => matchMedia('(pointer: coarse)').matches,
   canShare: navigator.canShare?.bind(navigator),
@@ -484,10 +482,10 @@ if (isDevHost(location.hostname)) {
   open();
 }
 
-relayoutWhenShown({ doc: document, win: window }, resize);
+relayoutWhenShown({ doc: document, win: window, canvas }, resize);
 // The canvas's box can change without the window's resize, as a phone's bars come and go.
 new ResizeObserver(() => resize()).observe(canvas);
-(document.getElementById('menu-version') as HTMLParagraphElement).textContent = `v${__APP_VERSION__}`;
+(document.getElementById('menu-version') as HTMLParagraphElement).textContent = `v${__APP_VERSION__} | ${__RELEASE_DATE__}`;
 // The dev server keeps hot reload: only the production build is kept offline and updated.
 if (import.meta.env.PROD) reloadIfSafe = keepUpdated(() => pickedSinceOpen || !menu.hidden);
 // A canvas draws with whatever font is loaded at that moment, so the first frame waits for the pixel font;

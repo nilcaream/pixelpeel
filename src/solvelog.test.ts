@@ -4,19 +4,41 @@ import levelsFile from './levels.json';
 import type { Level } from './levels.ts';
 import { paintedPicture } from './picture.ts';
 import { pick, status, type Board } from './rules.ts';
-import { LOG_KEY, RUN_KEY, appendLine, decodeAttempt, encodeAttempt, nextAttempt, solveLog, type Attempt } from './solvelog.ts';
+import {
+  CHUNK_LIMIT,
+  FILE_HEADER,
+  LOG_KEY,
+  LOG_LIMIT,
+  RUN_KEY,
+  addLine,
+  decodeAttempt,
+  encodeAttempt,
+  nextAttempt,
+  solveLog,
+  type Attempt,
+  type Chunk,
+} from './solvelog.ts';
 import { seededRng } from './rng.ts';
 
 const LEVELS = levelsFile as unknown as Level[];
 const L1 = LEVELS[0] as Level;
 
-function memory(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> & { data: Map<string, string> } {
+/** A storage in memory, which counts the characters written to it, as Chrome paces its writes by them. */
+function memory(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'> & { data: Map<string, string>; written: number } {
   const data = new Map<string, string>();
   return {
     data,
+    written: 0,
     getItem: (k) => data.get(k) ?? null,
-    setItem: (k, v) => void data.set(k, v),
+    setItem(k, v) {
+      this.written += v.length;
+      data.set(k, v);
+    },
     removeItem: (k) => void data.delete(k),
+    key: (i) => [...data.keys()][i] ?? null,
+    get length() {
+      return data.size;
+    },
   };
 }
 
@@ -55,7 +77,6 @@ describe('solve log', () => {
   it('replays every logged attempt to the very board and outcome it recorded', () => {
     const store = memory();
     const log = solveLog(store, '1.4.0');
-    log.setEnabled(true);
     const played = [1, 30, 60, 90].map((n, i) => ({ level: LEVELS[n - 1] as Level, ...playOut(log, LEVELS[n - 1] as Level, i + 1) }));
     const back = attempts(log.file());
     expect(back).toHaveLength(played.length);
@@ -72,7 +93,6 @@ describe('solve log', () => {
   it('holds no time: a line is the version, level, id, attempt, outcome and one letter per pick', () => {
     const store = memory();
     const log = solveLog(store, '1.4.0');
-    log.setEnabled(true);
     log.open(5, LEVELS[4]!.id, []);
     log.pick([2]);
     log.pick([2, 0]);
@@ -82,7 +102,6 @@ describe('solve log', () => {
   it('counts the attempts at a level until it is peeled, and starts again after', () => {
     const store = memory();
     const log = solveLog(store, '1.4.0');
-    log.setEnabled(true);
     log.open(1, L1.id, []);
     log.pick([0], 's');
     log.open(1, L1.id, []);
@@ -92,14 +111,13 @@ describe('solve log', () => {
     log.open(1, L1.id, []);
     log.pick([3], 's');
     expect(attempts(log.file()).map((a) => `${a.n}${a.outcome}`)).toEqual(['1s', '2l', '3w', '1s']);
-    expect(nextAttempt(store.data.get(LOG_KEY)!, 1, L1.id)).toBe(2);
-    expect(nextAttempt(store.data.get(LOG_KEY)!, 2, LEVELS[1]!.id)).toBe(1);
+    expect(nextAttempt(store.data.get(`${LOG_KEY}.1`)!, 1, L1.id)).toBe(2);
+    expect(nextAttempt(store.data.get(`${LOG_KEY}.1`)!, 2, LEVELS[1]!.id)).toBe(1);
   });
 
   it('goes on with the attempt in play after a reload', () => {
     const store = memory();
     const first = solveLog(store, '1.4.0');
-    first.setEnabled(true);
     first.open(1, L1.id, []);
     first.pick([1]);
     const second = solveLog(store, '1.4.0');
@@ -111,7 +129,6 @@ describe('solve log', () => {
   it('marks an attempt left when another level, a retry or a newer build opens instead', () => {
     const store = memory();
     const log = solveLog(store, '1.4.0');
-    log.setEnabled(true);
     log.open(1, L1.id, []);
     log.pick([0]);
     log.open(1, L1.id, []);
@@ -121,42 +138,68 @@ describe('solve log', () => {
     expect(attempts(newer.file()).map((a) => `${a.outcome} ${a.picks.join()}`)).toEqual(['l 0', 'l 2']);
   });
 
-  it('logs the picks made before opting in, from the first', () => {
+  it('is always kept, from the first pick, and sharing leaves it as it is', () => {
     const store = memory();
     const log = solveLog(store, '1.4.0');
+    expect(log.hasData()).toBe(false);
     log.open(1, L1.id, []);
     log.pick([3]);
-    expect(log.hasData()).toBe(false);
-    log.setEnabled(true);
-    log.pick([3, 1]);
-    expect(store.data.get(RUN_KEY)).toBe(`1.4.0 1 ${L1.id} 1 - db`);
-  });
-
-  it('is off by default, is not cleared by sharing, and is cleared by opting out', () => {
-    const store = memory();
-    const log = solveLog(store, '1.4.0');
-    expect(log.enabled()).toBe(false);
-    log.setEnabled(true);
-    expect(log.hasData()).toBe(false);
-    playOut(log, L1, 7);
-    log.open(2, LEVELS[1]!.id, []);
-    log.pick([0]);
+    expect(log.hasData()).toBe(true);
+    expect(store.data.get(RUN_KEY)).toBe(`1.4.0 1 ${L1.id} 1 - d`);
+    playOut(log, LEVELS[1]!, 7);
     const file = log.file();
     expect(log.file()).toBe(file);
-    expect(log.hasData()).toBe(true);
-    log.setEnabled(false);
-    expect(store.data.has(LOG_KEY)).toBe(false);
-    expect(store.data.has(RUN_KEY)).toBe(false);
-    expect(log.hasData()).toBe(false);
-    log.pick([0, 1]);
-    expect(store.data.size).toBe(0);
+    expect(solveLog(store, '1.4.0').file()).toBe(file);
   });
 
-  it('drops the oldest whole attempts past the limit', () => {
-    let log = '';
-    for (let i = 0; i < 10; i++) log = appendLine(log, `1.4.0 ${i + 1} 0000000${i} 1 l ab`, 100);
-    expect(log.length).toBeLessThanOrEqual(100);
-    expect(log.split('\n').map((l) => decodeAttempt(l)?.level)).toEqual([7, 8, 9, 10]);
+  it('keeps the keys it has always had: a log written before the chunks goes on, verbatim and oldest first', () => {
+    expect([LOG_KEY, RUN_KEY, LOG_LIMIT]).toEqual(['pixelpeel.solvelog', 'pixelpeel.solvelog.run', 1_000_000]);
+    const store = memory();
+    // As 1.4.0 to 1.5.0 left it, with a line no build reads (a hot-reload window of the first preview).
+    const old = [`1.4.0 1 ${L1.id} 1 s ab`, '1.4.0 1 176b3796 1 15175.300000011921 a', `1.5.0 1 ${L1.id} 2 l c`];
+    store.data.set(LOG_KEY, old.join('\n'));
+    store.data.set(RUN_KEY, `1.5.0 1 ${L1.id} 3 - ab`);
+    const log = solveLog(store, '1.5.1');
+    expect(log.hasData()).toBe(true);
+    log.open(1, L1.id, [0, 1]);
+    log.pick([0, 1, 2]);
+    expect(log.file()).toBe(
+      [FILE_HEADER, ...old, `1.5.0 1 ${L1.id} 3 l ab`, `1.5.1 1 ${L1.id} 4 - abc`].join('\n') + '\n',
+    );
+    expect(store.data.get(LOG_KEY)).toBe(old.join('\n'));
+    expect(store.data.get(`${LOG_KEY}.1`)).toBe(`1.5.0 1 ${L1.id} 3 l ab`);
+  });
+
+  it('writes no more than a chunk when an attempt ends, however long the log is', () => {
+    const store = memory();
+    const log = solveLog(store, '1.5.1');
+    for (let i = 0; i < 1000; i++) {
+      log.open(1, L1.id, []);
+      log.pick(Array.from({ length: 50 }, (_, k) => k % 4), 's');
+    }
+    expect(log.file().length).toBeGreaterThan(5 * CHUNK_LIMIT);
+    log.open(1, L1.id, []);
+    store.written = 0;
+    log.pick([0], 's');
+    expect(store.written).toBeLessThanOrEqual(CHUNK_LIMIT);
+    expect(solveLog(store, '1.5.1').file()).toBe(log.file());
+  });
+
+  it('adds a line to the last chunk until it is full, never to pixelpeel.solvelog itself', () => {
+    const line = (i: number) => `1.4.0 ${i} 0000000${i % 10} 1 l ab`;
+    let chunks: Chunk[] = [{ key: LOG_KEY, text: line(1) }];
+    for (let i = 2; i <= 6; i++) chunks = addLine(chunks, line(i), 1000, 50);
+    expect(chunks.map((c) => c.key)).toEqual([LOG_KEY, `${LOG_KEY}.1`, `${LOG_KEY}.2`, `${LOG_KEY}.3`]);
+    expect(chunks.map((c) => c.text.split('\n').length)).toEqual([1, 2, 2, 1]);
+  });
+
+  it('drops the oldest whole attempts past the limit, chunk by chunk, and keeps the last one whatever its size', () => {
+    let chunks: Chunk[] = [];
+    for (let i = 0; i < 10; i++) chunks = addLine(chunks, `1.4.0 ${i + 1} 0000000${i} 1 l ab`, 100, 50);
+    const lines = chunks.flatMap((c) => c.text.split('\n'));
+    expect(lines.join('\n').length).toBeLessThanOrEqual(100);
+    expect(lines.map((l) => decodeAttempt(l)?.level)).toEqual([7, 8, 9, 10]);
+    expect(addLine(chunks, 'x'.repeat(200), 100, 50)).toEqual([{ key: `${LOG_KEY}.6`, text: 'x'.repeat(200) }]);
   });
 
   it('encodes and decodes an attempt to the same', () => {

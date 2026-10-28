@@ -142,7 +142,8 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages
   (`.github/workflows/pages.yml`). The site is at a domain root, pixelpeel.nilcaream.com, so Vite's
   `base` is `/` and the manifest and icons are linked by absolute path.
-- The version is `package.json`'s, shown in the menu; it goes up with each release.
+- The version is `package.json`'s, shown in the menu with its `releaseDate` beside it; both are set at each
+  release, so a build is the same whenever it is made.
 - Offline and updates: the build has a service worker, `src/sw.ts`, built as `/sw.js`. Once the build is
   written, a plugin in `vite.config.ts` fills in the list of the build's files (`src/precache.ts`), so each
   new build is a new `sw.js`. The worker keeps the build and serves it, so the game opens offline.

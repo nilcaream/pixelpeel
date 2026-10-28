@@ -1,17 +1,27 @@
-// The solve log, which the player opts into from the menu: every attempt at a level, as the columns picked in
-// order, how it ended, and how many attempts the level has taken since it was last peeled. The rules depend
-// on nothing but the order of the picks, so an attempt replays exactly on the build that recorded it; the
-// level's id pins its content. It holds nothing about the player or the device, and no time of any kind.
+// The solve log, always kept: every attempt at a level, as the columns picked in order, how it ended, and how
+// many attempts the level has taken since it was last peeled. The rules depend on nothing but the order of
+// the picks, so an attempt replays exactly on the build that recorded it; the level's id pins its content. It
+// holds nothing about the player or the device, and no time of any kind. Nothing in the game clears it.
 //
-// Two keys keep it small to write. The finished attempts are one line each under LOG_KEY, written once when
-// an attempt ends; the attempt in play is its own line under RUN_KEY, rewritten at every pick. LOG_KEY being
-// there at all is the opt-in, and switching it off removes both. Past LOG_LIMIT the oldest attempts go.
+// The keys keep it small to write. Chrome writes the storage to disk in batches whose pace it slows down by
+// the size of every value changed, so the finished attempts are one line each in chunks of at most
+// CHUNK_LIMIT characters, under pixelpeel.solvelog.1, .2, and on; an attempt's end rewrites only the last
+// chunk. The attempt in play is its own line under RUN_KEY, rewritten at every pick. Past LOG_LIMIT the
+// oldest attempts go.
+//
+// The log outlives every update: the keys never change their names, a line is kept and shared exactly as it
+// was written, by whatever version (its first field), and a line this build cannot read is kept all the
+// same. LOG_KEY is where the finished attempts were kept before the chunks (1.4.0 to 1.5.0): it is read as
+// the oldest chunk and never added to; past the limit, its oldest lines go first.
 
 export const LOG_KEY = 'pixelpeel.solvelog';
 export const RUN_KEY = 'pixelpeel.solvelog.run';
 
-/** The most characters the finished attempts keep: about 1,300 attempts at a whole level, a small share of the storage. */
-export const LOG_LIMIT = 100_000;
+/** The most characters the finished attempts keep: about 13,000 attempts at a whole level. */
+export const LOG_LIMIT = 1_000_000;
+
+/** The most characters a chunk holds: about 130 attempts at a whole level. */
+export const CHUNK_LIMIT = 10_000;
 
 /** Won, stuck, left before the end, or still in play. */
 export type Outcome = 'w' | 's' | 'l' | '-';
@@ -27,7 +37,7 @@ export interface Attempt {
   picks: number[];
 }
 
-type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>;
 
 const COLUMNS = 'abcdefghijklmnopqrstuvwxyz';
 
@@ -56,16 +66,41 @@ export function decodeAttempt(line: string): Attempt | null {
   };
 }
 
-/** The log with a line added at the end, the oldest lines dropped until it fits the limit. */
-export function appendLine(log: string, line: string, limit = LOG_LIMIT): string {
-  let lines = log ? log.split('\n') : [];
-  lines.push(line);
-  let size = lines.join('\n').length;
-  while (lines.length > 1 && size > limit) {
-    size -= (lines[0] as string).length + 1;
-    lines = lines.slice(1);
+/** Some of the finished attempts, one line each: the storage key they are kept under, and the lines. */
+export interface Chunk {
+  key: string;
+  text: string;
+}
+
+/** A chunk key's number, which orders the chunks; LOG_KEY, the oldest, is 0. */
+export function chunkNumber(key: string): number {
+  const m = /^pixelpeel\.solvelog\.(\d+)$/.exec(key);
+  return m ? Number(m[1]) : key === LOG_KEY ? 0 : -1;
+}
+
+/**
+ * The chunks with a line added at the end, in a new chunk when the last one is full or is LOG_KEY, and the
+ * oldest lines dropped until all the chunks fit the limit. The one line left at the end always stays.
+ */
+export function addLine(chunks: readonly Chunk[], line: string, limit = LOG_LIMIT, chunkLimit = CHUNK_LIMIT): Chunk[] {
+  const out = chunks.map((c) => ({ ...c }));
+  const last = out.at(-1);
+  if (last && last.key !== LOG_KEY && last.text.length + 1 + line.length <= chunkLimit) last.text += `\n${line}`;
+  else out.push({ key: `${LOG_KEY}.${last ? chunkNumber(last.key) + 1 : 1}`, text: line });
+  // As the lines would be joined into one log.
+  let size = out.reduce((n, c) => n + c.text.length + 1, -1);
+  while (size > limit && (out.length > 1 || (out[0] as Chunk).text.includes('\n'))) {
+    const first = out[0] as Chunk;
+    const cut = first.text.indexOf('\n');
+    if (cut < 0) {
+      size -= first.text.length + 1;
+      out.shift();
+    } else {
+      size -= cut + 1;
+      first.text = first.text.slice(cut + 1);
+    }
   }
-  return lines.join('\n');
+  return out;
 }
 
 /** The number the next attempt at a level gets: one more than the last one logged, or 1 after a win or none. */
@@ -79,9 +114,6 @@ export function nextAttempt(log: string, level: number, id: string): number {
 }
 
 export interface SolveLog {
-  enabled(): boolean;
-  /** Opting in starts an empty log; opting out removes the log and the attempt in play. */
-  setEnabled(on: boolean): void;
   /** Whether there is any attempt to share. */
   hasData(): boolean;
   /** A level opened with these picks already made: the attempt in play goes on if it is this one, else it was left. */
@@ -121,27 +153,32 @@ export function solveLog(store: Store | null, version: string): SolveLog {
   const saved = get(RUN_KEY);
   if (saved) current = decodeAttempt(saved);
 
-  const enabled = (): boolean => get(LOG_KEY) !== null;
+  // The chunks there are, oldest first; an empty one has nothing to keep.
+  let chunks: Chunk[] = [];
+  try {
+    for (let i = 0; store && i < store.length; i++) {
+      const key = store.key(i);
+      const text = key !== null && chunkNumber(key) >= 0 ? get(key) : null;
+      if (key !== null && text) chunks.push({ key, text });
+    }
+  } catch {
+    // Storage refused: the log starts empty.
+  }
+  chunks.sort((a, b) => chunkNumber(a.key) - chunkNumber(b.key));
+
+  const finished = (): string => chunks.map((c) => c.text).join('\n');
   const finish = (outcome: Outcome): void => {
     if (!current) return;
-    set(LOG_KEY, appendLine(get(LOG_KEY) ?? '', encodeAttempt({ ...current, outcome })));
+    const next = addLine(chunks, encodeAttempt({ ...current, outcome }));
+    for (const c of chunks) if (!next.some((n) => n.key === c.key)) remove(c.key);
+    for (const n of next) if (chunks.find((c) => c.key === n.key)?.text !== n.text) set(n.key, n.text);
+    chunks = next;
     remove(RUN_KEY);
     current = null;
   };
 
   return {
-    enabled,
-    setEnabled(on) {
-      if (on === enabled()) return;
-      if (on) {
-        set(LOG_KEY, '');
-      } else {
-        remove(LOG_KEY);
-        remove(RUN_KEY);
-        current = null;
-      }
-    },
-    hasData: () => current !== null || !!get(LOG_KEY),
+    hasData: () => current !== null || chunks.length > 0,
     open(n, levelId, picks) {
       level = n;
       id = levelId;
@@ -152,17 +189,15 @@ export function solveLog(store: Store | null, version: string): SolveLog {
       if (!same) finish('l');
     },
     pick(picks, outcome) {
-      if (!enabled()) return;
-      // Opted in part way through a level, the attempt still starts from its first pick.
-      current ??= { version, level, id, n: nextAttempt(get(LOG_KEY) ?? '', level, id), outcome: '-', picks: [] };
+      // Updated from a build without the log part way through a level, the attempt still starts from its first pick.
+      current ??= { version, level, id, n: nextAttempt(finished(), level, id), outcome: '-', picks: [] };
       current.picks = picks.slice();
       if (outcome) finish(outcome);
       else set(RUN_KEY, encodeAttempt(current));
     },
     file() {
       const lines = [FILE_HEADER];
-      const log = get(LOG_KEY);
-      if (log) lines.push(log);
+      if (chunks.length) lines.push(finished());
       if (current) lines.push(encodeAttempt(current));
       return `${lines.join('\n')}\n`;
     },
