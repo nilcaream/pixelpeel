@@ -74,6 +74,16 @@ export const SUBJECT: Record<string, [string, [number, number, number, number]][
   'Harbour fireworks': [['yowpkrgw', [0, 0, 39, 19]], ['e', [4, 9, 37, 20]], ['nw', [16, 20, 25, 28]], ['yokr', [0, 21, 39, 29]]],
   'Toucan on a mossy branch': [['cebowyr', [3, 1, 39, 29]], ['no', [0, 20, 39, 27]]],
   'Bees on the comb': [['cnywse', [8, 6, 30, 24]], ['cnyws', [28, 0, 39, 8]], ['cnyws', [27, 20, 39, 29]]],
+  'Axolotl in a pond': [['kpr', [0, 2, 39, 28]], ['c', [1, 2, 39, 28]]],
+  'Mandrill close-up': [['nceyorbs', [4, 0, 36, 29]]],
+  'Highland cow in heather': [['oynwk', [3, 3, 37, 29]]],
+  'Mandarin duck on a pond': [['opnwc', [2, 4, 34, 23]]],
+  'Manta ray over a reef': [['cwe', [1, 3, 39, 29]]],
+  'Seahorse in seagrass': [['oyknc', [11, 0, 35, 29]]],
+  'Pagoda in autumn hills': [['cwryoe', [18, 0, 36, 29]], ['pw', [0, 5, 27, 17]]],
+  'Canal houses at dusk': [['rnewoyc', [0, 1, 39, 21]]],
+  'Comet over a desert arch': [['ron', [10, 10, 38, 29]], ['ws', [5, 0, 39, 12]]],
+  'Lightning over a city': [['cyow', [0, 10, 39, 24]], ['wk', [10, 0, 27, 18]]],
 };
 
 /** A remix's title → the title of the shipped picture it was drawn from. */
