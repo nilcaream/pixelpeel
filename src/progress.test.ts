@@ -19,6 +19,15 @@ describe('progress', () => {
     expect(loadProgress(store)).toEqual(p);
   });
 
+  it('reads what 1.5.0 saved, under the same key, unchanged', () => {
+    expect(STORAGE_KEY).toBe('pixelpeel.progress');
+    const store = memory();
+    store.data.set(STORAGE_KEY, '{"level":42,"reached":57,"run":{"id":"176b3796","picks":[0,2,1,3]}}');
+    expect(loadProgress(store)).toEqual({ level: 42, reached: 57, run: { id: '176b3796', picks: [0, 2, 1, 3] } });
+    store.data.set(STORAGE_KEY, '{"level":101,"reached":101,"run":null}');
+    expect(loadProgress(store)).toEqual({ level: 101, reached: 101, run: null });
+  });
+
   it('starts fresh from a damaged record rather than failing', () => {
     const store = memory();
     store.data.set(STORAGE_KEY, '{not json');

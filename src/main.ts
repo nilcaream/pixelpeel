@@ -18,6 +18,7 @@ import { relayoutWhenShown, sharpCanvas } from './relayout.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
 import { fileSharer } from './share.ts';
+import { savePick } from './save.ts';
 import { solveLog } from './solvelog.ts';
 import { keepUpdated } from './update.ts';
 import './style.css';
@@ -261,9 +262,8 @@ function play(column: number): void {
   pickedSinceOpen = true;
   board = r.board;
   scene = place(scene, r.pot, r.lifts);
-  saveProgress(store, progress);
   const s = status(board);
-  log.pick(picks, s === 'won' ? 'w' : s === 'stuck' ? 's' : undefined);
+  progress = savePick(store, log, progress, picks, s === 'won' ? 'w' : s === 'stuck' ? 's' : undefined);
 }
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -297,8 +297,9 @@ function frame(now: number): void {
     // The end is shown once the screen has caught up with the rules.
     const s = status(board);
     if (s !== 'playing' && idle(scene) && end.hidden) {
-      if (s === 'won') {
-        // The level is peeled: the progress moves on now, so a reload opens the next level.
+      // The winning pick moved the progress on (savePick). A run saved won without that, by a build before
+      // 1.5.1, moves on when it is opened again and its end shows.
+      if (s === 'won' && progress.level === level.number) {
         progress = peeled(progress);
         saveProgress(store, progress);
       }
