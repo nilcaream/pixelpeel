@@ -138,11 +138,13 @@ describe('the scene levels', () => {
   });
 
   const painted = each.filter(([, l]) => l.overrides);
-  it('paints levels 61 and 70 navy for charcoal and level 82 teal for sky', () => {
+  it('paints levels 61, 70, 96 and 100 navy for charcoal and level 82 teal for sky', () => {
     expect(painted.map(([n, l]) => [n, l.overrides])).toEqual([
       [61, { c: 'v' }],
       [70, { c: 'v' }],
       [82, { s: 't' }],
+      [96, { c: 'v' }],
+      [100, { c: 'v' }],
     ]);
   });
 
