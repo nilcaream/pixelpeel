@@ -287,6 +287,11 @@ body {
   font-size: 16px;
 }
 
+/* "100" at 16 px is 54 px with the padding, wider than its square; at 12 px it is 42. */
+#menu-levels button.long {
+  font-size: 12px;
+}
+
 #menu-levels button[aria-current='true'] {
   background: #fdd835;
   color: var(--page);

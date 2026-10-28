@@ -322,6 +322,7 @@ function showMenu(shown: boolean): void {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = String(n);
+        b.classList.toggle('long', n >= 100);
         b.setAttribute('aria-label', `Level ${n}`);
         if (n === level?.number) b.setAttribute('aria-current', 'true');
         // The level first: closing the menu may reload onto a newer build, which then opens that level.
