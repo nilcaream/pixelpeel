@@ -130,8 +130,7 @@ body {
  * pixels (four box-shadows), a darker bottom row, and the pixel font. A press moves them down.
  */
 #menu-button,
-.menu-panel button,
-#level-chooser {
+.menu-panel button {
   font-family: var(--pixel-font);
   font-size: 14px;
   color: var(--ink);
@@ -169,18 +168,6 @@ body {
     linear-gradient(var(--ink), var(--ink)) center 13px / 18px 3px no-repeat,
     linear-gradient(var(--ink), var(--ink)) center 19px / 18px 3px no-repeat,
     #2a2a33;
-}
-
-/* The dev chooser keeps the system font: its lines ("10 · Night village · VH · d3 · 85%") would be 34 em wide. */
-#level-chooser {
-  width: 100%;
-  font-family: system-ui, sans-serif;
-  font-size: 15px;
-  padding: 8px 10px;
-}
-
-#level-chooser[hidden] {
-  display: none;
 }
 
 .menu-panel h1 {
@@ -339,10 +326,10 @@ body {
   background: #8bc34a;
   color: var(--page);
   box-shadow:
-    -3px 0 0 0 #0c0c10,
-    3px 0 0 0 #0c0c10,
-    0 -3px 0 0 #0c0c10,
-    0 3px 0 0 #0c0c10,
+    -3px 0 0 0 #5a5a68,
+    3px 0 0 0 #5a5a68,
+    0 -3px 0 0 #5a5a68,
+    0 3px 0 0 #5a5a68,
     inset 0 -4px 0 0 #557a2a;
 }
 

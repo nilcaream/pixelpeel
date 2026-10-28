@@ -6,14 +6,15 @@
 
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { CONFIRM_MS, confirmTaps } from './confirm.ts';
-import { DEV_KEY, isDevPort } from './dev.ts';
+import { DEV_KEY, bandLabel, isDevPort, stepAt } from './dev.ts';
 import { replay } from './generator.ts';
 import { measure, nameFontSize, toCanvas, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
-import { CASUAL_GAMES, VISIBLE, type Band, type Level } from './levels.ts';
+import { browserIdb, openKeep } from './keep.ts';
+import { VISIBLE, type Level } from './levels.ts';
 import { paintedPicture, type Picture } from './picture.ts';
 import { FINALE_TEXT, tapOpensMenu } from './finale.ts';
-import { FRESH, browserStore, loadProgress, peeled, playable, saveProgress, type Progress } from './progress.ts';
+import { FRESH, browserStore, peeled, playable, type Progress } from './progress.ts';
 import { relayoutWhenShown, sharpCanvas } from './relayout.ts';
 import { EMPTY, pick, status, type Board } from './rules.ts';
 import { AT_BUCKET, createScene, frameWidth, freeSlot, idle, place, tick, type Scene } from './scene.ts';
@@ -33,8 +34,6 @@ const STEP_MS = 1000 / STEPS_PER_SECOND;
 /** The pixel font of the page (src/style.css), which the numbers on the pots are drawn in too. */
 const PIXEL_FONT = '"Press Start 2P", system-ui, sans-serif';
 
-const BAND_SHORT: Record<Band, string> = { easy: 'E', medium: 'M', hard: 'H', 'very hard': 'VH' };
-
 const LEVELS = levelsFile as unknown as Level[];
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -43,7 +42,6 @@ const sharp = sharpCanvas(canvas, ctx);
 const levelNumber = document.getElementById('level-number') as HTMLSpanElement;
 const levelName = document.getElementById('level-name') as HTMLSpanElement;
 const levelBand = document.getElementById('level-band') as HTMLSpanElement;
-const chooser = document.getElementById('level-chooser') as HTMLSelectElement;
 const menu = document.getElementById('menu') as HTMLDivElement;
 const menuButton = document.getElementById('menu-button') as HTMLButtonElement;
 const menuLevels = document.getElementById('menu-levels') as HTMLDivElement;
@@ -53,8 +51,11 @@ const endText = document.getElementById('end-text') as HTMLParagraphElement;
 const endButton = document.getElementById('end-button') as HTMLButtonElement;
 
 const store = browserStore();
-let progress: Progress = loadProgress(store);
-const log = solveLog(store, __APP_VERSION__);
+const { kept, keeper } = await openKeep(browserIdb(), store, __APP_VERSION__);
+let progress: Progress = kept.progress;
+const log = solveLog(kept, keeper, __APP_VERSION__);
+/** Whether dev mode is on, which only a dev port offers. */
+let dev = false;
 let level: Level | null = null;
 let picture: Picture;
 let picks: number[] = [];
@@ -85,7 +86,7 @@ function open(): void {
   }
   levelNumber.textContent = `Level ${level.number}`;
   levelName.textContent = level.title;
-  levelBand.textContent = `(${level.band})`;
+  levelBand.textContent = bandLabel(level, dev);
   picture = paintedPicture(level.rows, level.overrides);
   const saved = progress.run?.id === level.id ? progress.run.picks : [];
   picks = saved.slice();
@@ -94,16 +95,15 @@ function open(): void {
   scene = createScene(board);
   log.open(level.number, level.id, picks);
   progress = { ...progress, run: { id: level.id, picks } };
-  saveProgress(store, progress);
+  keeper.write({ progress });
   resize();
-  chooser.value = String(level.number);
 }
 
 /** Moves the progress to a level and opens it with nothing in play. */
 function goTo(n: number): void {
   const to = Math.max(1, Math.min(n, LEVELS.length + 1));
   progress = { level: to, reached: Math.max(progress.reached, to), run: null };
-  saveProgress(store, progress);
+  keeper.write({ progress });
   open();
 }
 
@@ -262,7 +262,10 @@ function play(column: number): void {
   board = r.board;
   scene = place(scene, r.pot, r.lifts);
   const s = status(board);
-  progress = savePick(store, log, progress, picks, s === 'won' ? 'w' : s === 'stuck' ? 's' : undefined);
+  progress = savePick(log, progress, picks, s === 'won' ? 'w' : s === 'stuck' ? 's' : undefined);
+  // Asks the browser to keep the data when space runs short, rather than evict it with the other sites'; at a
+  // win, so that a browser which asks the player (Firefox) asks one who has won something.
+  if (s === 'won') void navigator.storage?.persist?.().catch(() => false);
 }
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -270,6 +273,11 @@ canvas.addEventListener('pointerdown', (e) => {
   const p = toCanvas(e.clientX, e.clientY, canvas.getBoundingClientRect(), view);
   const column = columnAt(p.x, p.y);
   if (column >= 0) play(column);
+  else if (dev) {
+    const { left, top, cell } = layout;
+    const step = stepAt(p.x, p.y, { left: left + cell, top: top + cell, width: scene.width * cell, height: scene.height * cell });
+    if (step && LEVELS[level.number - 1 + step]) goTo(level.number + step);
+  }
 });
 
 endButton.addEventListener('click', () => {
@@ -300,7 +308,7 @@ function frame(now: number): void {
       // 1.5.1, moves on when it is opened again and its end shows.
       if (s === 'won' && progress.level === level.number) {
         progress = peeled(progress);
-        saveProgress(store, progress);
+        keeper.write({ progress });
       }
       endText.textContent = s === 'won' ? 'Peeled!' : 'Stuck';
       end.dataset.state = s === 'won' ? 'won' : 'stuck';
@@ -417,7 +425,7 @@ clear.addEventListener('click', () => {
   if (clearTaps.tap(performance.now()) === 'act') {
     unarm();
     progress = FRESH;
-    saveProgress(store, progress);
+    keeper.write({ progress });
     showMenu(false);
     open();
     return;
@@ -429,18 +437,9 @@ clear.addEventListener('click', () => {
   }, CONFIRM_MS);
 });
 
-// Dev mode shows a chooser of every level in the menu, with what the bake measured for each.
-for (const l of LEVELS) {
-  const option = document.createElement('option');
-  option.value = String(l.number);
-  // Number, title, band, depth, casual wins.
-  option.textContent = `${l.number} · ${l.title} · ${BAND_SHORT[l.band]} · d${l.depth} · ${Math.round((l.casualWins / CASUAL_GAMES) * 100)}%`;
-  chooser.append(option);
-}
-chooser.addEventListener('change', () => goTo(Number(chooser.value)));
-
 function setDev(on: boolean): void {
-  chooser.hidden = !on;
+  dev = on;
+  if (level) levelBand.textContent = bandLabel(level, dev);
   devButton.setAttribute('aria-pressed', String(on));
   try {
     store?.setItem(DEV_KEY, on ? '1' : '0');
@@ -478,6 +477,7 @@ if (isDevPort(location.port)) {
     },
     pick: play,
     goTo,
+    keptIn: keeper.where,
   };
 } else {
   open();

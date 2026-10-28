@@ -126,8 +126,9 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
     play of the sensible player, a player who keeps to one column, and the thinker.
 - Dev mode is for trying levels. The menu offers it, as a button that is green while on, only when the
   page is served on a port above 5000 (for example `npm run dev`, or a preview on the LAN), never on the
-  site's default port. Once it is on, it stays on there, and the menu shows a list of every level with its
-  band, depth and casual win rate. On such a port, `?level=N` opens level N.
+  site's default port. Once it is on, it stays on there: the band under the level's name shows the level's
+  depth and casual win rate, as "(hard d3 13%)", and a tap on the left or right third of the picture opens
+  the level before or after. On such a port, `?level=N` opens level N.
 
 ## Development
 
@@ -137,7 +138,8 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
   everything that follows at once, so a game's outcome depends only on the order of the picks.
   `src/scene.ts` animates what the rules decided, with dots on a tick. `src/generator.ts` deals,
   perturbs and measures a level's pots on the rules, and `src/bake.ts` keeps the deals that fit a band.
-  `src/main.ts` draws the scene on a canvas, and `src/progress.ts` keeps the player's progress.
+  `src/main.ts` draws the scene on a canvas, `src/progress.ts` is the player's progress, and `src/keep.ts`
+  keeps it with the solve log in IndexedDB.
 - The icons are the Cactus level's scene made square, with a few more rows of its sky above and its sand
   below (`src/logo.ts`). They are made by `python3 -I scripts/make-icons.py` (Pillow).
 - Every push to `main` builds, tests and publishes `dist/` to GitHub Pages

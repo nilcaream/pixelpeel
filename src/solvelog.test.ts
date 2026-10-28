@@ -4,42 +4,27 @@ import levelsFile from './levels.json';
 import type { Level } from './levels.ts';
 import { paintedPicture } from './picture.ts';
 import { pick, status, type Board } from './rules.ts';
-import {
-  CHUNK_LIMIT,
-  FILE_HEADER,
-  LOG_KEY,
-  LOG_LIMIT,
-  RUN_KEY,
-  addLine,
-  decodeAttempt,
-  encodeAttempt,
-  nextAttempt,
-  solveLog,
-  type Attempt,
-  type Chunk,
-} from './solvelog.ts';
+import { LOG_KEY, RUN_KEY, localKept, localKeeper } from './keep.ts';
+import { FILE_HEADER, LOG_LIMIT, decodeAttempt, encodeAttempt, nextAttempt, solveLog as logOver, toDrop, type Attempt } from './solvelog.ts';
 import { seededRng } from './rng.ts';
 
 const LEVELS = levelsFile as unknown as Level[];
 const L1 = LEVELS[0] as Level;
 
-/** A storage in memory, which counts the characters written to it, as Chrome paces its writes by them. */
-function memory(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'> & { data: Map<string, string>; written: number } {
+function memory(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> & { data: Map<string, string> } {
   const data = new Map<string, string>();
   return {
     data,
-    written: 0,
     getItem: (k) => data.get(k) ?? null,
-    setItem(k, v) {
-      this.written += v.length;
-      data.set(k, v);
-    },
+    setItem: (k, v) => void data.set(k, v),
     removeItem: (k) => void data.delete(k),
-    key: (i) => [...data.keys()][i] ?? null,
-    get length() {
-      return data.size;
-    },
   };
+}
+
+/** The log as a start finds it in localStorage; IndexedDB keeps the same lines (keep.test.ts). */
+function solveLog(store: ReturnType<typeof memory>, version: string) {
+  const kept = localKept(store);
+  return logOver(kept, localKeeper(store, kept.lines), version);
 }
 
 function boardAfter(level: Level, picks: number[]): Board {
@@ -111,8 +96,8 @@ describe('solve log', () => {
     log.open(1, L1.id, []);
     log.pick([3], 's');
     expect(attempts(log.file()).map((a) => `${a.n}${a.outcome}`)).toEqual(['1s', '2l', '3w', '1s']);
-    expect(nextAttempt(store.data.get(`${LOG_KEY}.1`)!, 1, L1.id)).toBe(2);
-    expect(nextAttempt(store.data.get(`${LOG_KEY}.1`)!, 2, LEVELS[1]!.id)).toBe(1);
+    expect(nextAttempt(store.data.get(LOG_KEY)!.split('\n'), 1, L1.id)).toBe(2);
+    expect(nextAttempt(store.data.get(LOG_KEY)!.split('\n'), 2, LEVELS[1]!.id)).toBe(1);
   });
 
   it('goes on with the attempt in play after a reload', () => {
@@ -152,7 +137,7 @@ describe('solve log', () => {
     expect(solveLog(store, '1.4.0').file()).toBe(file);
   });
 
-  it('keeps the keys it has always had: a log written before the chunks goes on, verbatim and oldest first', () => {
+  it('keeps the keys it has always had in localStorage: a log 1.5.0 wrote goes on, verbatim and oldest first', () => {
     expect([LOG_KEY, RUN_KEY, LOG_LIMIT]).toEqual(['pixelpeel.solvelog', 'pixelpeel.solvelog.run', 1_000_000]);
     const store = memory();
     // As 1.4.0 to 1.5.0 left it, with a line no build reads (a hot-reload window of the first preview).
@@ -166,40 +151,20 @@ describe('solve log', () => {
     expect(log.file()).toBe(
       [FILE_HEADER, ...old, `1.5.0 1 ${L1.id} 3 l ab`, `1.5.1 1 ${L1.id} 4 - abc`].join('\n') + '\n',
     );
-    expect(store.data.get(LOG_KEY)).toBe(old.join('\n'));
-    expect(store.data.get(`${LOG_KEY}.1`)).toBe(`1.5.0 1 ${L1.id} 3 l ab`);
+    expect(store.data.get(LOG_KEY)).toBe([...old, `1.5.0 1 ${L1.id} 3 l ab`].join('\n'));
+    expect(store.data.get(RUN_KEY)).toBe(`1.5.1 1 ${L1.id} 4 - abc`);
   });
 
-  it('writes no more than a chunk when an attempt ends, however long the log is', () => {
-    const store = memory();
-    const log = solveLog(store, '1.5.1');
-    for (let i = 0; i < 1000; i++) {
-      log.open(1, L1.id, []);
-      log.pick(Array.from({ length: 50 }, (_, k) => k % 4), 's');
+  it('drops the oldest whole attempts past the limit, and keeps the one added whatever its size', () => {
+    let lines: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const line = `1.4.0 ${i + 1} 0000000${i} 1 l ab`;
+      lines = [...lines.slice(toDrop(lines, line, 100)), line];
     }
-    expect(log.file().length).toBeGreaterThan(5 * CHUNK_LIMIT);
-    log.open(1, L1.id, []);
-    store.written = 0;
-    log.pick([0], 's');
-    expect(store.written).toBeLessThanOrEqual(CHUNK_LIMIT);
-    expect(solveLog(store, '1.5.1').file()).toBe(log.file());
-  });
-
-  it('adds a line to the last chunk until it is full, never to pixelpeel.solvelog itself', () => {
-    const line = (i: number) => `1.4.0 ${i} 0000000${i % 10} 1 l ab`;
-    let chunks: Chunk[] = [{ key: LOG_KEY, text: line(1) }];
-    for (let i = 2; i <= 6; i++) chunks = addLine(chunks, line(i), 1000, 50);
-    expect(chunks.map((c) => c.key)).toEqual([LOG_KEY, `${LOG_KEY}.1`, `${LOG_KEY}.2`, `${LOG_KEY}.3`]);
-    expect(chunks.map((c) => c.text.split('\n').length)).toEqual([1, 2, 2, 1]);
-  });
-
-  it('drops the oldest whole attempts past the limit, chunk by chunk, and keeps the last one whatever its size', () => {
-    let chunks: Chunk[] = [];
-    for (let i = 0; i < 10; i++) chunks = addLine(chunks, `1.4.0 ${i + 1} 0000000${i} 1 l ab`, 100, 50);
-    const lines = chunks.flatMap((c) => c.text.split('\n'));
     expect(lines.join('\n').length).toBeLessThanOrEqual(100);
     expect(lines.map((l) => decodeAttempt(l)?.level)).toEqual([7, 8, 9, 10]);
-    expect(addLine(chunks, 'x'.repeat(200), 100, 50)).toEqual([{ key: `${LOG_KEY}.6`, text: 'x'.repeat(200) }]);
+    expect(toDrop(lines, 'x'.repeat(200), 100)).toBe(4);
+    expect(toDrop(lines, 'x', 100)).toBe(0);
   });
 
   it('encodes and decodes an attempt to the same', () => {

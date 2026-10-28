@@ -1,8 +1,9 @@
 // What the browser keeps between visits: the level the player has reached, the level in play (which may
 // be one already peeled, played again from the menu), and the picks of the level in play, saved after
 // every pick. The rules depend on nothing but the order of the picks, so the
-// columns picked, in turn, bring the game back to exactly where it was left. Storage may be missing or
-// refuse (a private window, blocked site data); then the game plays on without saving.
+// columns picked, in turn, bring the game back to exactly where it was left. Where it is kept is keep.ts;
+// this is the record, and how localStorage holds it (as 1.5.0 kept it, and where IndexedDB cannot open).
+// Storage may be missing or refuse (blocked site data); then the game plays on without saving.
 
 export interface Progress {
   /** The level in play, counting from 1. */
@@ -28,18 +29,22 @@ function isPick(p: unknown): p is number {
 export function loadProgress(store: Store | null): Progress {
   try {
     const raw = store?.getItem(STORAGE_KEY);
-    if (!raw) return FRESH;
-    const p = JSON.parse(raw) as Progress;
-    const level = isLevel(p.level) ? p.level : 1;
-    const reached = Math.max(level, isLevel(p.reached) ? p.reached : 1);
-    const run =
-      p.run && typeof p.run.id === 'string' && Array.isArray(p.run.picks) && p.run.picks.every(isPick)
-        ? { id: p.run.id, picks: p.run.picks }
-        : null;
-    return { level, reached, run };
+    return raw ? readProgress(JSON.parse(raw)) : FRESH;
   } catch {
     return FRESH;
   }
+}
+
+/** The progress a record holds, as kept by any version: what is damaged in it starts fresh. */
+export function readProgress(record: unknown): Progress {
+  const p = (record ?? {}) as Progress;
+  const level = isLevel(p.level) ? p.level : 1;
+  const reached = Math.max(level, isLevel(p.reached) ? p.reached : 1);
+  const run =
+    p.run && typeof p.run.id === 'string' && Array.isArray(p.run.picks) && p.run.picks.every(isPick)
+      ? { id: p.run.id, picks: p.run.picks }
+      : null;
+  return { level, reached, run };
 }
 
 export function saveProgress(store: Store | null, p: Progress): void {
