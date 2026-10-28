@@ -325,41 +325,25 @@ body {
   white-space: nowrap;
 }
 
+/* Dev mode is a button like Clear progress: gray while off, green while on. */
 #menu-dev {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--pixel-font);
-  font-size: 12px;
+  margin: 0 3px;
+  padding: 8px 10px 10px;
 }
 
 #menu-dev[hidden] {
   display: none;
 }
 
-/* A square pixel box, filled green when ticked. */
-#menu-dev input {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  margin: 3px;
-  background: #2a2a33;
-  box-shadow:
-    -3px 0 0 0 #5a5a68,
-    3px 0 0 0 #5a5a68,
-    0 -3px 0 0 #5a5a68,
-    0 3px 0 0 #5a5a68;
-  cursor: pointer;
-}
-
-#menu-dev input:checked {
+#menu-dev[aria-pressed='true'] {
   background: #8bc34a;
+  color: var(--page);
   box-shadow:
-    -3px 0 0 0 #5a5a68,
-    3px 0 0 0 #5a5a68,
-    0 -3px 0 0 #5a5a68,
-    0 3px 0 0 #5a5a68,
-    inset 0 0 0 4px #2a2a33;
+    -3px 0 0 0 #0c0c10,
+    3px 0 0 0 #0c0c10,
+    0 -3px 0 0 #0c0c10,
+    0 3px 0 0 #0c0c10,
+    inset 0 -4px 0 0 #557a2a;
 }
 
 #menu-share,

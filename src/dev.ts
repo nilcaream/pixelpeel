@@ -1,11 +1,10 @@
-// Dev mode: tools for trying levels while the game is worked on. It is offered only on the machine the
-// game is worked on, reached as 127.0.0.1, and nowhere else; once switched on, it stays on there.
-
-export const DEV_HOST = '127.0.0.1';
+// Dev mode: tools for trying levels while the game is worked on. It is offered only where the game is served
+// for work, on a port above 5000 (the dev server and the previews on the LAN), and never on the site, which
+// is served on the default port; once switched on, it stays on there.
 
 export const DEV_KEY = 'pixelpeel.dev';
 
-/** True only for exactly 127.0.0.1: not localhost, not another loopback address, not a published site. */
-export function isDevHost(hostname: string): boolean {
-  return hostname === DEV_HOST;
+/** True only for a port above 5000, as `location.port` gives it: empty on the default port. */
+export function isDevPort(port: string): boolean {
+  return /^\d+$/.test(port) && Number(port) > 5000;
 }

@@ -6,7 +6,7 @@
 
 import { AUTOPILOT_SPEED, autopilotPick, onAutopilot } from './autopilot.ts';
 import { CONFIRM_MS, confirmTaps } from './confirm.ts';
-import { DEV_KEY, isDevHost } from './dev.ts';
+import { DEV_KEY, isDevPort } from './dev.ts';
 import { replay } from './generator.ts';
 import { measure, nameFontSize, toCanvas, type Layout } from './layout.ts';
 import levelsFile from './levels.json';
@@ -47,8 +47,7 @@ const chooser = document.getElementById('level-chooser') as HTMLSelectElement;
 const menu = document.getElementById('menu') as HTMLDivElement;
 const menuButton = document.getElementById('menu-button') as HTMLButtonElement;
 const menuLevels = document.getElementById('menu-levels') as HTMLDivElement;
-const devOption = document.getElementById('menu-dev') as HTMLLabelElement;
-const devToggle = document.getElementById('menu-dev-toggle') as HTMLInputElement;
+const devButton = document.getElementById('menu-dev') as HTMLButtonElement;
 const end = document.getElementById('end') as HTMLDivElement;
 const endText = document.getElementById('end-text') as HTMLParagraphElement;
 const endButton = document.getElementById('end-button') as HTMLButtonElement;
@@ -315,7 +314,7 @@ function frame(now: number): void {
 }
 
 // The menu, open from every screen: the levels peeled so far, clearing the progress, the source, and on
-// the dev host the dev mode.
+// a dev port the dev mode.
 function showMenu(shown: boolean): void {
   if (shown) {
     menuLevels.replaceChildren(
@@ -442,7 +441,7 @@ chooser.addEventListener('change', () => goTo(Number(chooser.value)));
 
 function setDev(on: boolean): void {
   chooser.hidden = !on;
-  devToggle.checked = on;
+  devButton.setAttribute('aria-pressed', String(on));
   try {
     store?.setItem(DEV_KEY, on ? '1' : '0');
   } catch {
@@ -450,9 +449,9 @@ function setDev(on: boolean): void {
   }
 }
 
-if (isDevHost(location.hostname)) {
-  devOption.hidden = false;
-  devToggle.addEventListener('change', () => setDev(devToggle.checked));
+if (isDevPort(location.port)) {
+  devButton.hidden = false;
+  devButton.addEventListener('click', () => setDev(devButton.getAttribute('aria-pressed') !== 'true'));
   let on = false;
   try {
     on = store?.getItem(DEV_KEY) === '1';

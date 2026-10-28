@@ -124,9 +124,10 @@ is spelled in coloured letters, so a browser that translates the page leaves it 
     and gives away: picks that hold a bucket because their colour cannot be reached yet, the free buckets left
     at each pick, and runs of picks down one column that each lift pixels, along the solver's line and in the
     play of the sensible player, a player who keeps to one column, and the thinker.
-- Dev mode is for trying levels. The menu offers it only when the page is opened at exactly `127.0.0.1`
-  (for example `npm run dev`), never anywhere else. Once it is on, it stays on there, and the menu shows a
-  list of every level with its band, depth and casual win rate. On that host, `?level=N` opens level N.
+- Dev mode is for trying levels. The menu offers it, as a button that is green while on, only when the
+  page is served on a port above 5000 (for example `npm run dev`, or a preview on the LAN), never on the
+  site's default port. Once it is on, it stays on there, and the menu shows a list of every level with its
+  band, depth and casual win rate. On such a port, `?level=N` opens level N.
 
 ## Development
 
