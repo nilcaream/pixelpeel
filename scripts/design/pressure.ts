@@ -23,6 +23,7 @@
 // level's depth on games 1–20.
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { winningLine } from '../../src/bake.ts';
 import { play } from '../../src/generator.ts';
 import levelsFile from '../../src/levels.json' with { type: 'json' };
 import { CASUAL_GAMES, THINKER_GAMES, VISIBLE, type Band, type Level } from '../../src/levels.ts';
@@ -186,7 +187,7 @@ function fewestDigs(picture: Picture, columns: Pot[][], buckets: number): { digs
 function measureLevel(l: Level) {
   const picture = poolPicture(l.rows);
   const b = l.structure.buckets;
-  const solver = tally([{ won: true, picks: line(picture, l.columns, b, l.winningOrder) }]);
+  const solver = tally([{ won: true, picks: line(picture, l.columns, b, winningLine(l)) }]);
   const few = fewestDigs(picture, l.columns, b);
   const fewest = few && tally([{ won: true, picks: line(picture, l.columns, b, few.picks) }]);
   const sensible = tally(

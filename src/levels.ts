@@ -254,8 +254,6 @@ export interface Level {
   structure: Structure;
   /** The pots per column, the top one first; a pot's colour indexes the picture's palette. */
   columns: Pot[][];
-  /** A game that wins this level: the column of each pick, in turn. */
-  winningOrder: number[];
   /** The seed of the pots' making and perturbing, how hard they were perturbed, and the knobs that makes. */
   seed: number;
   strength: number;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { missBy } from './bake.ts';
-import { measure, replay } from './generator.ts';
+import { measure } from './generator.ts';
 import levelsFile from './levels.json';
 import {
   BAKED_WITHOUT_GATES,
@@ -26,8 +26,8 @@ import {
 } from './levels.ts';
 import { POOL, checkOverrides, colourByChar } from './palette.ts';
 import { paintedPicture, poolPicture } from './picture.ts';
-import { status } from './rules.ts';
 import { SCENES, sceneRows } from './scenes.ts';
+import { solve } from './thinker.ts';
 
 const levels = levelsFile as unknown as Level[];
 const each = levels.map((l) => [l.number, l] as const);
@@ -133,9 +133,13 @@ describe('the scene levels', () => {
     if (named) expect({ sceneSeed: l.sceneSeed, buckets: l.structure.buckets, seed: l.seed, strength: l.strength }).toEqual(named);
   });
 
-  it.each(each)('level %i can be won: its winning order replays to a win', (_, l) => {
-    expect(status(replay(poolPicture(l.rows), l.columns, l.structure.buckets, l.winningOrder))).toBe('won');
+  it.each(each)('level %i keeps no winning line: the bake proved it winnable and stored none', (_, l) => {
+    expect(l).not.toHaveProperty('winningOrder');
   });
+
+  it.each(each)('level %i can be won: the solver wins it under the rules as they are now, and the line is not kept', (_, l) => {
+    expect(solve(poolPicture(l.rows), l.columns, l.structure.buckets).result).toBe('win');
+  }, 30_000);
 
   const painted = each.filter(([, l]) => l.overrides);
   it('paints levels 61, 70, 96 and 100 navy for charcoal and level 82 teal for sky', () => {
@@ -151,7 +155,6 @@ describe('the scene levels', () => {
   it.each(painted)('level %i plays the same painted as unpainted: its overrides change only the colours shown', (_, l) => {
     const shown = paintedPicture(l.rows, l.overrides);
     expect({ ...shown, palette: shown.palette.length }).toEqual({ ...poolPicture(l.rows), palette: poolPicture(l.rows).palette.length });
-    expect(status(replay(shown, l.columns, l.structure.buckets, l.winningOrder))).toBe('won');
   });
 
   it.each(painted)('level %i is painted in its overrides where the game shows it', (_, l) => {
@@ -204,14 +207,13 @@ describe('a level drawn in other letters', () => {
   swapped[letters[letters.length - 1] as string] = unused[unused.length - 1] as string;
   const rows = level.rows.map((r) => [...r].map((c) => swapped[c]).join(''));
 
-  it('is the same pots renumbered, so the same game: the same casual share and the same winning order', () => {
+  it('is the same pots renumbered, so the same game: the same casual share', () => {
     const moved = relabel(level, rows);
     expect(moved.rows).toEqual(rows);
     expect(moved.columns).not.toEqual(level.columns);
     expect(moved.columns.map((c) => c.map((p) => p.count))).toEqual(level.columns.map((c) => c.map((p) => p.count)));
     const picture = poolPicture(rows);
     expect(measure(picture, moved.columns, moved.structure.buckets, CASUAL_GAMES, 'sensible').wins).toBe(level.casualWins);
-    expect(status(replay(picture, moved.columns, moved.structure.buckets, moved.winningOrder))).toBe('won');
     expect(moved.id).toBe(levelId(rows, moved.columns, moved.structure.buckets));
   }, 30_000);
 

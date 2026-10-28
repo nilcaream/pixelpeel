@@ -26,6 +26,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { Worker } from 'node:worker_threads';
+import { winningLine } from '../../src/bake.ts';
 import levelsFile from '../../src/levels.json' with { type: 'json' };
 import { VISIBLE, type Level } from '../../src/levels.ts';
 import { poolPicture, type Picture } from '../../src/picture.ts';
@@ -882,7 +883,7 @@ async function main(args: string[]): Promise<void> {
   console.log(
     `explored ${tree.size} positions${only ? ` the sensible player reaches, and ${searched} off its games,` : ''} in ${tree.seconds.toFixed(1)} s${tree.complete ? '' : ' (stopped: incomplete)'}`,
   );
-  console.log(`solver line: ${JSON.stringify(lineOf(game, level.winningOrder))}`);
+  console.log(`solver line: ${JSON.stringify(lineOf(game, winningLine(level)))}`);
   if (!tree.complete) return;
   const m = solve(game, tree);
   const file = `${outDir('tree')}/${number}${only ? '-sensible' : ''}.json`;

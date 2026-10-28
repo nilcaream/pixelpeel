@@ -4,7 +4,8 @@
 // hidden pots adds no more than MAX_LUCK, the hold-out games, which played no part in choosing it, keep
 // it in the band, no careless player (random, sensible, sticky) wins more than the band's cap, and, medium and
 // harder, no line can lose only from DECIDED_FLOOR of the picture peeled on. A deal that fails one of the last
-// two plays easier than its band. Once baked, the stored deal is the level: nothing deals it again.
+// two plays easier than its band. Once baked, the stored deal is the level: nothing deals it again. The solver's
+// winning line proves the deal winnable and serves the decided floor while the deal is judged; it is never stored.
 //
 // The knobs turn in this order: the perturbing strength first (up when the deal was too easy, down when
 // too hard), then fewer buckets (5, 4, 3) once the strength alone could not make it hard enough, then the
@@ -79,14 +80,14 @@ export function knobsAt(strength: number, pots: number): Knobs {
 
 export type Verdict =
   | { fits: false; why: 'easier' | 'harder' | 'luck'; casualWins: number; thinkers: number[]; holdout?: Holdout; gate?: 'careless' | 'decided' }
-  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; holdout: Holdout; gates?: Gates; winningOrder: number[] };
+  | { fits: true; casualWins: number; thinkers: number[]; depth: number; fullSight: number; luck: number; holdout: Holdout; gates?: Gates };
 
 /**
  * The decided points of a deal: the median, over the sensible player's won games among games 1 to CASUAL_GAMES, of
- * the share peeled where no line can lose any more, and the same on the winning order; null when it won none. It
+ * the share peeled where no line can lose any more, and the same on the solver's line; null when it won none. It
  * needs the exact solver of the design tools, so the bake is handed it rather than importing it.
  */
-export type DecidedOf = (picture: Picture, columns: Pot[][], buckets: number, winningOrder: number[]) => { decided: number | null; line: number };
+export type DecidedOf = (picture: Picture, columns: Pot[][], buckets: number, solverLine: number[]) => { decided: number | null; line: number };
 
 /**
  * The careless players' wins, cheapest first, stopping as soon as one is over the band's cap: the random player on
@@ -156,7 +157,7 @@ export function judge(picture: Picture, columns: Pot[][], buckets: number, rule:
   const { decided, line } = band === 'easy' ? { decided: null, line: null } : decidedOf(picture, columns, buckets, solved.picks);
   const gates: Gates = { randomWins: careless.randomWins, stickyWins: careless.stickyWins, decided, decidedLine: line };
   if (passesGates(band, casualWins, gates) !== 'in') return { fits: false, why: 'easier', gate: 'decided', casualWins, thinkers, holdout };
-  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, gates, winningOrder: solved.picks };
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, gates };
 }
 
 /**
@@ -195,7 +196,14 @@ function judgeClosest(picture: Picture, columns: Pot[][], buckets: number, rule:
   const fullSight = thinkerShare(picture, columns, buckets, THINKER_GAMES, { sight: Infinity, depth });
   const luck = round2(Math.max(0, fullSight - Math.max(...thinkers)));
   const { holdout } = holdoutOf(picture, columns, buckets, rule);
-  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout, winningOrder: solved.picks };
+  return { fits: true, casualWins, thinkers, depth, fullSight, luck, holdout };
+}
+
+/** The solver's winning line of a stored level, found again: a level keeps no line. */
+export function winningLine(level: Level): number[] {
+  const solved = solve(poolPicture(level.rows), level.columns, level.structure.buckets);
+  if (solved.result !== 'win') throw new Error(`level ${level.number}: the solver does not win it`);
+  return solved.picks;
 }
 
 /**
@@ -208,7 +216,7 @@ export function rejudge(level: Level, decidedOf: DecidedOf): { holdout: Holdout;
   const { holdout } = holdoutOf(picture, level.columns, buckets, ruleFor(level.number), true);
   const randomWins = measure(picture, level.columns, buckets, CASUAL_GAMES, 'random', undefined, RANDOM_FIRST).wins;
   const stickyWins = measure(picture, level.columns, buckets, CASUAL_GAMES, 'sticky').wins;
-  const { decided, line } = level.band === 'easy' ? { decided: null, line: null } : decidedOf(picture, level.columns, buckets, level.winningOrder);
+  const { decided, line } = level.band === 'easy' ? { decided: null, line: null } : decidedOf(picture, level.columns, buckets, winningLine(level));
   const gates: Gates = { randomWins, stickyWins, decided, decidedLine: line };
   return { holdout, fit: holdsBand({ ...level, holdout }), gates, gatesFit: passesGates(level.band, level.casualWins, gates) };
 }
@@ -267,7 +275,6 @@ export function bakeLevel(number: number, decidedOf: DecidedOf, log: (line: stri
           luck: v.luck,
           holdout: v.holdout,
           ...(v.gates && { gates: v.gates }),
-          winningOrder: v.winningOrder,
           ...(scene.overrides && { overrides: scene.overrides }),
         }
       : null;

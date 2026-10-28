@@ -26,6 +26,7 @@
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import levelsFile from '../../src/levels.json' with { type: 'json' };
+import { winningLine } from '../../src/bake.ts';
 import { play } from '../../src/generator.ts';
 import { CARELESS_CAP, CASUAL_GAMES, DECIDED_FLOOR, gaugeMisreads, type Band, type Level } from '../../src/levels.ts';
 import type { Picture } from '../../src/picture.ts';
@@ -201,7 +202,7 @@ function decidedOf(game: Game, solver: Budgeted, line: Position[]): { decided: n
   return { decided: peeled(line[sure] as Position), low: peeled(line[j + 1] as Position) };
 }
 
-/** The decided point of a stored winning order, with the same budget. */
+/** The decided point of a winning line, with the same budget. */
 function solverLine(game: Game, solver: Budgeted, picks: number[]): { decided: number; low: number } {
   const line = [game.start()];
   for (const c of picks) line.push(game.pick(line[line.length - 1] as Position, c) as Position);
@@ -210,9 +211,9 @@ function solverLine(game: Game, solver: Budgeted, picks: number[]): { decided: n
 
 /**
  * The bake's decided floor measures (`DecidedOf` in src/bake.ts): the median decided point of the sensible player's
- * won games among the casual games, which are `play`'s, and the decided point of the winning order.
+ * won games among the casual games, which are `play`'s, and the decided point of the solver's line.
  */
-export function decidedPoints(picture: Picture, columns: Pot[][], buckets: number, winningOrder: number[]): { decided: number | null; line: number } {
+export function decidedPoints(picture: Picture, columns: Pot[][], buckets: number, picks: number[]): { decided: number | null; line: number } {
   const game = new Game(picture, columns, buckets);
   const solver = new Budgeted(game);
   const won: number[] = [];
@@ -220,7 +221,7 @@ export function decidedPoints(picture: Picture, columns: Pot[][], buckets: numbe
     const g = play(picture, columns, buckets, seed, 'sensible');
     if (g.won) won.push(solverLine(game, solver, g.picks).decided);
   }
-  return { decided: won.length ? median(won) : null, line: solverLine(game, solver, winningOrder).decided };
+  return { decided: won.length ? median(won) : null, line: solverLine(game, solver, picks).decided };
 }
 
 const SEED: Record<PlayerName, number> = { U: 1_000_000, S: 0, K: 0 };
@@ -322,7 +323,7 @@ export function measureLevel(l: Level, games: number) {
     casual: l.casualWins / CASUAL_GAMES,
     depth: l.depth,
     thinkers: l.thinkers,
-    solverLine: solverLine(game, solver, l.winningOrder),
+    solverLine: solverLine(game, solver, winningLine(l)),
     positionsSolved: solver.memo.size,
     cacheCleared: solver.cleared,
     per,
