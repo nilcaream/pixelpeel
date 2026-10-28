@@ -676,4 +676,339 @@ export const PORTFOLIO: readonly Scene[] = [
         }
     },
   },
+  {
+    title: 'Vintage typewriter',
+    ...LARGE,
+    draw: (c) => {
+      // A green papered wall with small yellow flowers over a desk whose grain runs in long broken streaks.
+      c.fill((x, y) => {
+        if (y < 17 + Math.round((c.noise(x, y, 6, 1401) - 0.5) * 1.5)) {
+          if (y % 4 === 1 && (x + (y % 8 === 1 ? 0 : 3)) % 6 === 0) return 'y';
+          return c.noise(x, y, 2.5, 1402) > 0.68 ? 'd' : 'g';
+        }
+        return c.noise(x * 0.35, y * 2.2, 3, 1403) > 0.6 ? 'o' : 'n';
+      });
+      outlined(c, 'c', () => {
+        // The sheet in the roller, typed in broken grey lines.
+        c.fill((x, y) => {
+          if (x < 13 || x > 26 || y < 2 || y > 10) return undefined;
+          return y % 2 === 1 && y < 9 && x > 13 && x < (y === 7 ? 21 : 26) && hash(x, y, 1404) < 0.75 ? 'e' : 'w';
+        });
+        c.rect(9, 10, 30, 11, 'e');
+        oval(c, 7.5, 11, 1.7, 1.7, 0, 'y');
+        oval(c, 32.5, 11, 1.7, 1.7, 0, 'y');
+        c.line(33, 9, 35, 7, 'e');
+        c.poly([6, 26, 33, 26, 30, 12, 9, 12], 'r');
+        // The basket of type bars, a fan of grey and brown under the roller.
+        oval(c, 19.5, 12.5, 5, 2.2, 0, (_u, v, x) => (v < 0 ? undefined : x % 2 ? 'e' : 'n'));
+        c.poly([10, 24.5, 29, 24.5, 27.5, 15, 11.5, 15], 'c');
+        [16, 18, 20].forEach((y, r) => {
+          for (let x = 12; x <= 27; x++) if ((x + r) % 2 === 0 && c.at(x, y) === 'c' && c.at(x + 1, y) === 'c') c.put(x, y, r === 1 && x % 4 === 0 ? 'y' : 'w');
+        });
+        c.rect(15, 22, 24, 22, 'w');
+        c.rect(17, 25, 22, 25, 'y');
+      });
+    },
+  },
+  {
+    title: 'Books and a candle',
+    ...LARGE,
+    draw: (c) => {
+      // A dark blue room, lit in rings of purple and pink round the flame; a wooden table below.
+      c.fill((x, y) => {
+        const d = Math.hypot((x + 0.5 - 20) / 1.3, y + 0.5 - 4) + (c.noise(x, y, 3, 1501) - 0.5) * 3;
+        if (y >= 25 + Math.round((c.noise(x, y, 6, 1502) - 0.5) * 1.2)) return c.noise(x * 0.35, y * 2.2, 3, 1503) > 0.6 ? 'o' : 'n';
+        return d < 7 ? 'k' : d < 12.5 ? 'p' : 'b';
+      });
+      c.speckle('s', 'b', 0.03, 1504);
+      outlined(c, 'c', () => {
+        // Three books lying in a stack, their page edges striped, their spines banded in gold.
+        const book = (x0: number, x1: number, y0: number, y1: number, cover: string, band: string, spineLeft: boolean, salt: number): void =>
+          c.fill((x, y) => {
+            if (x < x0 || x > x1 || y < y0 || y > y1) return undefined;
+            const spine = spineLeft ? x <= x0 + 1 : x >= x1 - 1;
+            if (spine) return y > y0 && y < y1 && (y - y0) % 2 === 1 ? band : cover;
+            if (y === y0 || y === y1 || x === (spineLeft ? x1 : x0)) return cover;
+            return hash(x, y, salt) < 0.3 ? 'e' : 'w';
+          });
+        book(3, 36, 21, 24, 'r', 'y', true, 1505);
+        book(6, 33, 17, 20, 'd', 'y', false, 1506);
+        book(9, 30, 14, 16, 'o', 'n', true, 1507);
+        c.rect(18, 7, 21, 13, 'w');
+        c.rect(21, 8, 21, 13, 'e');
+        c.put(18, 8, 'e');
+        c.put(19, 6, 'n');
+        oval(c, 19.5, 3.8, 1.7, 2.4, 0, 'o');
+        oval(c, 19.5, 4.4, 0.9, 1.5, 0, 'y');
+      });
+    },
+  },
+  {
+    title: 'Guitar on a rug',
+    ...LARGE,
+    draw: (c) => {
+      // Floorboards round a red rug: a blue and yellow border, a lattice of orange diamonds, white fringes.
+      c.fill((x, y) => {
+        const e = Math.min(x - 3, 36 - x, y - 2, 27 - y) + (c.noise(x, y, 3, 1602) - 0.5) * 1.2;
+        if (e < 0) return c.noise(x * 2.5, y * 0.4, 3, 1601) > 0.6 ? 'o' : 'n';
+        if (e < 1) return 'b';
+        if (e < 2) return 'y';
+        if (e < 3) return 'b';
+        const sx = (x + (Math.floor(y / 6) % 2) * 4) % 8;
+        const d = Math.abs(sx - 4) + Math.abs((y % 6) - 3);
+        return d === 0 ? 'y' : d === 1 ? 'o' : 'r';
+      });
+      for (let y = 4; y < 26; y += 2) {
+        if (c.at(3, y) !== 'n' && c.at(3, y) !== 'o') c.put(2, y, 'w');
+        if (c.at(36, y) !== 'n' && c.at(36, y) !== 'o') c.put(37, y, 'w');
+      }
+      const ang = Math.atan2(16, 22);
+      outlined(c, 'c', () => {
+        c.curve(15.5, 11.5, 11.5, 8.6, 7.5, 5.7, 'n', 2.2, 2);
+        oval(c, 5.6, 4.3, 2.5, 1.5, ang, 'e');
+        oval(c, 19.2, 14.2, 5, 4.5, ang, 'o');
+        oval(c, 26.5, 19.5, 7, 6, ang, 'o');
+        oval(c, 19.2, 14.2, 4, 3.5, ang, 'y');
+        oval(c, 26.5, 19.5, 6, 5, ang, 'y');
+        oval(c, 22, 16.3, 2.7, 2.7, 0, 'n');
+        oval(c, 22, 16.3, 1.8, 1.8, 0, 'c');
+        oval(c, 28.6, 21, 0.8, 2.4, ang, 'n');
+      });
+      for (let i = 1; i < 7; i++) c.put(Math.round(15.5 - (8 * i) / 7), Math.round(11.5 - (5.8 * i) / 7), 'e');
+    },
+  },
+  {
+    title: 'Bicycle with flowers',
+    ...LARGE,
+    draw: (c) => {
+      // A yellow plastered wall with a green-shuttered window, over a cobbled street.
+      c.fill((x, y) => {
+        if (y >= 25 + Math.round((c.noise(x, y, 5, 1702) - 0.5) * 1.2)) return (y % 2 === 0 && (x + (y % 4) * 2) % 5 === 0) || hash(x, y, 1703) < 0.08 ? 'n' : 'e';
+        return c.noise(x, y, 3, 1701) > 0.72 ? 'o' : 'y';
+      });
+      c.fill((x, y) => {
+        if (x < 2 || x > 15 || y < 2 || y > 13) return undefined;
+        if (x < 5 || x > 12) return y % 2 ? 'd' : 'g';
+        return x === 8 || x === 9 || y === 7 ? 'w' : 's';
+      });
+      // The wheels: charcoal tyres, grey rims and spokes, the wall showing between.
+      for (const [cx, cy] of [[10, 20], [29, 20]] as const) {
+        c.fill((x, y) => {
+          const d = Math.hypot(x + 0.5 - cx - 0.5, y + 0.5 - cy - 0.5);
+          return d > 5.7 ? undefined : d > 4.7 ? 'c' : d > 4.1 || d < 1.1 ? 'e' : undefined;
+        });
+        for (let i = 0; i < 8; i++) c.line(cx, cy, Math.round(cx + Math.cos((i * Math.PI) / 4 + 0.3) * 4), Math.round(cy + Math.sin((i * Math.PI) / 4 + 0.3) * 4), 'e');
+      }
+      c.curve(10, 20, 14.5, 20.5, 19, 21, 'b', 1.6);
+      c.curve(10, 20, 13, 15.5, 16, 11, 'b', 1.4);
+      c.curve(19, 21, 17.5, 16, 16, 11, 'b', 1.6);
+      c.curve(16, 11, 21, 11.3, 26, 12, 'b', 1.6);
+      c.curve(19, 21, 23, 17.5, 26.5, 14, 'b', 1.8);
+      c.curve(26, 12, 28.5, 15, 29, 20, 'b', 1.4);
+      c.curve(16, 10, 15.8, 9.5, 15.5, 9, 'e', 1);
+      oval(c, 15, 8.3, 2.3, 1, 0, 'n');
+      oval(c, 19.5, 21.5, 1.5, 1.5, 0, 'e');
+      c.line(20, 22, 21, 24, 'c');
+      outlined(c, 'c', () => {
+        c.curve(26, 12, 25.5, 9.5, 23, 8.5, 'e', 1.2);
+        c.fill((x, y) => (x < 26 || x > 34 || y < 8 || y > 12 ? undefined : y % 2 === 0 && x % 3 !== 0 ? 'o' : 'n'));
+        oval(c, 30.5, 5.5, 5.5, 3, 0, 'd', 0.3, 1704);
+        for (const [x, y, col, mid] of [[27, 6, 'r', 'y'], [30, 3.5, 'k', 'y'], [33.5, 5.5, 'w', 'y'], [29.5, 7, 'p', 'y'], [34, 2.8, 'r', 'y'], [31.5, 6.5, 'y', 'o'], [26.5, 3.5, 'w', 'y']] as const) {
+          oval(c, x, y, 1.4, 1.3, 0, col);
+          c.put(Math.floor(x), Math.floor(y), mid);
+        }
+      });
+    },
+  },
+  {
+    title: 'Sundae in a tall glass',
+    ...LARGE,
+    draw: (c) => {
+      // Pink and purple candy stripes behind a sky-blue counter.
+      c.fill((x, y) => {
+        if (y >= 26 + Math.round((c.noise(x, y, 6, 1802) - 0.5) * 1.2)) return hash(x, y, 1803) < 0.12 ? 'w' : 's';
+        return 'kpkpkp'[Math.floor((x + y * 0.4 + c.noise(x, y, 4, 1801) * 3) / 2.2) % 6];
+      });
+      const half = (y: number): number => 4.2 + 3.6 * ((23 - y) / 14) ** 0.8;
+      outlined(c, 'c', () => {
+        // The tulip glass: grey walls, layers of chocolate, vanilla, strawberry and caramel with wavy tops.
+        c.fill((x, y) => {
+          if (y < 9 || y > 26) return undefined;
+          const dx = Math.abs(x + 0.5 - 20);
+          if (y >= 24) return dx < (y === 26 ? 4 : 1) ? 'e' : undefined;
+          const w = half(y);
+          if (dx > w) return undefined;
+          if (dx > w - 1) return 'e';
+          const lv = y + Math.sin(x * 1.3) * 0.8 + (c.noise(x, y, 2, 1804) - 0.5);
+          if (lv > 20) return 'n';
+          if (lv > 16.5) return 'w';
+          if (lv > 13) return 'k';
+          return lv > 11 ? 'n' : 'o';
+        });
+        // Whipped cream in three tiers, sprinkles, a wafer and a cherry on top.
+        for (const [cy, rx, ry] of [[8.5, 7.8, 2.2], [6.4, 6, 1.9], [4.5, 4.2, 1.6]] as const) oval(c, 20, cy, rx, ry, 0, (_u, v) => (v > 0.55 ? 'e' : 'w'));
+        c.speckle('r', 'w', 0.07, 1805);
+        c.fill((x, y, now) => (now === 'w' && y < 10 && hash(x, y, 1806) < 0.06 ? 'b' : undefined));
+        c.curve(26, 8, 27.5, 5.5, 28.5, 3, 'y', 1.6);
+        oval(c, 20.5, 2.5, 1.4, 1.3, 0, 'r');
+        c.line(21, 1, 22, 1, 'd');
+      });
+    },
+  },
+  {
+    title: 'Sunbird at red flowers',
+    ...LARGE,
+    draw: (c) => {
+      // A soft green background with dark leaves and pale yellow spots of light.
+      c.fill((x, y) => {
+        const n = c.noise(x, y, 6, 1901);
+        return n < 0.36 ? 'd' : n < 0.66 ? 'g' : 's';
+      });
+      for (let i = 0; i < 6; i++) oval(c, 2 + hash(i, 1, 1902) * 36, 2 + hash(i, 2, 1902) * 26, 1.6, 1.6, 0, 'y');
+      c.curve(0, 24, 12, 20.5, 26, 23, 'n', 1.8, 1.3);
+      outlined(c, 'c', () => {
+        // An aloe spike: a brown stalk hung with red tubes that turn orange at their tips.
+        c.curve(34, 29, 35, 20, 33, 6, 'n', 1.6, 1.2);
+        for (let i = 0; i < 9; i++) {
+          const y = 6 + i * 1.6;
+          const sx = 33 + (y - 6) * 0.12;
+          const side = i % 2 ? 1 : -1;
+          const len = 2.2 + i * 0.15;
+          c.curve(sx, y, sx + side * len * 0.7, y + 0.6, sx + side * len, y + 2.2, 'r', 1.2, 1);
+          c.put(Math.round(sx + side * len), Math.round(y + 2.4), i < 3 ? 'y' : 'o');
+        }
+        // The sunbird, perched and facing the flowers: purple head, blue throat, red breast, yellow belly.
+        c.curve(10, 18.5, 6, 21, 2, 23.5, 'b', 2.4, 1);
+        oval(c, 15, 16, 7, 4.6, -0.45, (_u, v) => (v > 0.4 ? 'y' : 'd'));
+        oval(c, 14.5, 14.8, 5.2, 2.5, -0.4, (_u, v) => (v < -0.35 ? 'g' : v > 0.5 ? 'e' : 'd'));
+        oval(c, 21.5, 10, 3.4, 3.2, 0, 'p');
+        oval(c, 22.2, 12.8, 2.2, 1.4, 0, 'b');
+        oval(c, 20.8, 15, 2.4, 1.6, -0.45, 'r');
+        c.curve(24.6, 10, 27.5, 10.4, 29.5, 12.8, 'c', 1.2, 1);
+        c.line(14, 20, 14, 21, 'c');
+        c.line(17, 20, 17, 21, 'c');
+        c.put(22, 9, 'c');
+        c.put(21, 9, 'w');
+      });
+    },
+  },
+  {
+    title: 'Rainbow over a waterfall',
+    ...LARGE,
+    draw: (c) => {
+      c.fill(() => 's');
+      cloud(c, 6, 2, 7, 2001);
+      cloud(c, 30, 1, 6, 2002);
+      // Two cliffs of grey rock with dark cracks, wooded on top, the fall between them.
+      c.fill((x, y) => {
+        const n = (c.noise(x, y, 4, 2003) - 0.5) * 3;
+        const left = 5 + x * 0.25 + n;
+        const right = 5 + (39 - x) * 0.25 + n;
+        const top = x < 14 ? left : x > 25 ? right : 99;
+        if (y < top) return undefined;
+        if (y < top + 2.2) return c.noise(x, y, 2, 2004) > 0.55 ? 'g' : 'd';
+        return c.noise(x * 2, y * 0.6, 3, 2005) > 0.68 ? 'c' : 'e';
+      });
+      c.fill((x, y) => (x >= 14 && x <= 25 && y >= 7 && y < 23 ? (hash(x, Math.floor(y / 3 + hash(x, 0, 2006) * 3), 2007) < 0.3 ? 's' : 'w') : undefined));
+      c.fill((x, y) => (y >= 23 + Math.round((c.noise(x, y, 4, 2008) - 0.5) * 1.5) ? (hash(x, y, 2009) < 0.1 ? 's' : 'b') : undefined));
+      for (let i = 0; i < 7; i++) oval(c, 12 + i * 2.6, 22.5 + hash(i, 1, 2010) * 1.2, 2.4, 1.3, 0, 'w', 0.3, 2011);
+      // The rainbow in the spray, from the left cliff to the right one.
+      c.fill((x, y) => {
+        if (y > 22) return undefined;
+        const d = Math.hypot(x + 0.5 - 20, (y + 0.5 - 29) * 1.1);
+        return d >= 10 && d < 18.4 ? 'rpbgyo'[5 - Math.floor((d - 10) / 1.4)] : undefined;
+      });
+    },
+  },
+  {
+    title: 'Citrus slices',
+    ...LARGE,
+    draw: (c) => {
+      // A blue cloth with wavy sky-blue stripes and a few mint leaves.
+      c.fill((x, y) => ((y + 1.5 * Math.sin(x / 5) + c.noise(x, y, 4, 2101)) % 5 < 1.2 ? 's' : 'b'));
+      leaf(c, 3, 26, 3.5, 1.4, -0.6, 'd', 'g');
+      leaf(c, 37, 3, 3.5, 1.4, 2.4, 'd', 'g');
+      // A slice: rind, a white ring of pith, and segments split by white spokes, with a few seeds or juice dots.
+      const slice = (cx: number, cy: number, r: number, rind: string, flesh: string, dot: string, turn: number, salt: number): void =>
+        oval(c, cx, cy, r, r, 0, (u, v, x, y) => {
+          const d = Math.hypot(u, v);
+          if (d > 0.86) return rind;
+          if (d > 0.72 || d < 0.16) return 'w';
+          const seg = ((Math.atan2(v, u) + turn) / (2 * Math.PI)) * 9;
+          if ((Math.abs(seg - Math.round(seg)) * d * r * 2 * Math.PI) / 9 < 0.65) return 'w';
+          return hash(x, y, salt) < 0.07 ? dot : flesh;
+        });
+      outlined(c, 'c', () => {
+        slice(19.5, 21, 7.5, 'o', 'k', 'r', 0.2, 2102);
+        slice(33, 22, 5.6, 'd', 'g', 'y', 0.5, 2103);
+        slice(28.5, 9.5, 7, 'y', 'y', 'o', 0.9, 2104);
+        slice(11, 9.5, 7.5, 'o', 'o', 'y', 0, 2105);
+      });
+    },
+  },
+  {
+    title: 'Campfire on a beach',
+    ...LARGE,
+    draw: (c) => {
+      // A night sky with purple clouds and stars, a moon, the sea with its moon path, grey moonlit sand.
+      c.fill((x, y) => (c.noise(x, y, 5, 2201) > 0.52 ? 'p' : 'b'));
+      c.speckle('w', 'b', 0.04, 2202);
+      oval(c, 31.5, 4.5, 2.6, 2.6, 0, (_u, _v, x, y) => (hash(x, y, 2203) < 0.2 ? 'e' : 'w'));
+      c.fill((x, y) => {
+        if (y < 13) return undefined;
+        if (y > 18 + Math.round(Math.sin(x / 3) + (c.noise(x, y, 3, 2204) - 0.5) * 2)) return hash(x, y, 2205) < 0.06 ? 'w' : 'e';
+        if (Math.abs(x - 31.5) < 2.2 - (y - 13) * 0.15 && hash(x, y, 2206) < 0.6) return 'w';
+        return (y + c.noise(x, y, 3, 2207) * 2) % 3 < 0.8 ? 'b' : 's';
+      });
+      c.curve(1, 27, 4.5, 25.5, 8, 27, 'n', 2);
+      outlined(c, 'c', () => {
+        // The fire: crossed logs, flames of red, orange and yellow, a ring of pale stones.
+        c.curve(12, 26.5, 20, 24.5, 28, 22.5, 'n', 2);
+        c.curve(12, 22.5, 20, 24.5, 28, 26.5, 'n', 2);
+        c.curve(16.5, 19, 13.5, 12, 15.5, 7, 'r', 3, 1);
+        c.curve(23.5, 19, 27, 13, 25, 8, 'r', 3, 1);
+        oval(c, 20, 16, 5.2, 7.5, 0, 'r');
+        oval(c, 20, 18, 3.8, 5.6, 0, 'o');
+        oval(c, 20, 19.8, 2.4, 3.8, 0, 'y');
+        oval(c, 20, 21.2, 1, 1.6, 0, 'w');
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 8) * Math.PI;
+          oval(c, 20 + Math.cos(a) * 9, 25.5 + Math.sin(a) * 2.4, 1.3, 0.9, 0, (_u, v) => (v > 0.3 ? 'e' : 'w'));
+        }
+      });
+      for (let i = 0; i < 7; i++) c.put(Math.round(15 + hash(i, 1, 2208) * 10), Math.round(5 + hash(i, 2, 2208) * 5), i % 2 ? 'y' : 'o');
+    },
+  },
+  {
+    title: 'Combine in a wheat field',
+    ...LARGE,
+    draw: (c) => {
+      c.fill(() => 's');
+      cloud(c, 4, 2, 8, 2301);
+      cloud(c, 28, 3, 7, 2302);
+      land(c, 11, 1, 'd', 2303, 2);
+      // Uncut wheat to the right of the machine, stubble in brown streaks behind it.
+      c.fill((x, y) => {
+        if (y < 13 + Math.round((c.noise(x, y, 6, 2304) - 0.5) * 1.5)) return undefined;
+        if (x < 20 + (c.noise(x, y, 3, 2305) - 0.5) * 3) return (y * 3 + x) % 7 < 2 ? 'n' : 'o';
+        return hash(x, y, 2306) < 0.18 ? 'o' : 'y';
+      });
+      for (let i = 0; i < 5; i++) oval(c, 3 + i * 2.5, 19 - i * 0.8, 2.6, 1.8, 0, i % 2 ? 'w' : 'e', 0.3, 2307);
+      outlined(c, 'c', () => {
+        // The combine: green body and grain tank, sky-blue cab, the unloading pipe, the red reel at the front.
+        c.curve(12, 11, 8, 8.5, 5, 8, 'g', 1.4);
+        c.poly([9, 22, 28, 22, 28, 13, 20, 12.5, 10, 13.5], 'g');
+        c.fill((_x, y, now) => (now === 'g' && y >= 20 ? 'd' : undefined));
+        c.poly([11, 13.5, 19, 13, 18, 10, 12, 10.5], 'y');
+        c.poly([20, 13, 27, 13, 26, 7, 21, 7], 'g');
+        c.poly([21, 12, 26, 12, 25.5, 8, 21.5, 8], 's');
+        c.put(23, 9, 'w');
+        c.put(24, 10, 'w');
+        c.poly([28, 21, 36, 22, 36, 18.5, 28, 18], 'y');
+        oval(c, 31.5, 17.5, 3.6, 3.6, 0, (u, v) => (Math.abs(u) < 0.2 || Math.abs(v) < 0.2 || Math.hypot(u, v) > 0.75 ? 'r' : undefined));
+        oval(c, 22, 22, 3.6, 3.6, 0, (u, v) => (Math.hypot(u, v) > 0.6 ? 'c' : Math.hypot(u, v) > 0.3 ? 'y' : 'e'));
+        oval(c, 12, 23, 2.6, 2.6, 0, (u, v) => (Math.hypot(u, v) > 0.55 ? 'c' : 'y'));
+      });
+    },
+  },
 ];

@@ -84,6 +84,16 @@ export const SUBJECT: Record<string, [string, [number, number, number, number]][
   'Canal houses at dusk': [['rnewoyc', [0, 1, 39, 21]]],
   'Comet over a desert arch': [['ron', [10, 10, 38, 29]], ['ws', [5, 0, 39, 12]]],
   'Lightning over a city': [['cyow', [0, 10, 39, 24]], ['wk', [10, 0, 27, 18]]],
+  'Vintage typewriter': [['wey', [5, 1, 35, 13]], ['rcwye', [5, 12, 34, 27]]],
+  'Books and a candle': [['rdywec', [2, 13, 37, 25]], ['on', [9, 14, 30, 16]], ['weoyc', [16, 0, 23, 13]]],
+  'Guitar on a rug': [['ynco', [12, 9, 34, 27]], ['nec', [3, 1, 17, 13]]],
+  'Bicycle with flowers': [['bce', [4, 8, 35, 25]], ['rkwpdnc', [20, 0, 37, 13]], ['yo', [5, 15, 15, 25]], ['yo', [24, 15, 34, 25]]],
+  'Sundae in a tall glass': [['enocrybd', [11, 0, 29, 27]], ['kw', [14, 3, 26, 14]], ['kw', [16, 14, 24, 22]]],
+  'Sunbird at red flowers': [['pbrc', [8, 6, 30, 22]], ['ydge', [9, 11, 22, 21]], ['rocn', [29, 5, 38, 29]], ['n', [0, 19, 27, 26]]],
+  'Rainbow over a waterfall': [['rpbgyo', [1, 9, 38, 22]], ['ws', [9, 7, 31, 24]]],
+  'Citrus slices': [['okrydgwc', [2, 1, 39, 29]]],
+  'Campfire on a beach': [['roywnc', [9, 5, 31, 29]], ['n', [0, 24, 9, 29]], ['we', [28, 1, 35, 8]]],
+  'Combine in a wheat field': [['gdrc', [3, 6, 37, 26]], ['sy', [20, 7, 37, 22]]],
 };
 
 /** A remix's title → the title of the shipped picture it was drawn from. */
@@ -106,6 +116,12 @@ export const REMIX: Record<string, string> = {
   'Ring nebula in infrared': 'Nebula pillars in infrared',
   'Starfish in a rock pool': 'Octopus in a rock pool',
   'Leopard on a branch at dusk': 'Lion resting at dusk',
+  'Sundae in a tall glass': 'Ice cream cone',
+  'Sunbird at red flowers': 'Hummingbird at a flower',
+  'Rainbow over a waterfall': 'Rainbow over hills',
+  'Citrus slices': 'Watermelon slice',
+  'Campfire on a beach': 'Campfire and tent',
+  'Combine in a wheat field': 'Tractor in a field',
 };
 
 /** Pictures alike enough that two of them are never played back to back. */
