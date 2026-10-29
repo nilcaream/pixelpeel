@@ -1011,4 +1011,320 @@ export const PORTFOLIO: readonly Scene[] = [
       });
     },
   },
+  {
+    title: 'Clockwork robot dog',
+    ...LARGE,
+    draw: (c) => {
+      // A blue and purple workshop wall over a wooden floor.
+      c.fill((x, y) => {
+        if (y >= 26 + Math.round((c.noise(x, y, 6, 2401) - 0.5) * 1.2)) return c.noise(x * 0.35, y * 2.2, 3, 2402) > 0.6 ? 'o' : 'n';
+        return c.noise(x, y, 5, 2403) > 0.55 ? 'p' : 'b';
+      });
+      outlined(c, 'c', () => {
+        // The tin dog: grey body and head, brass joints, a gear on its side, a wind-up key on its back.
+        c.curve(10, 13, 7, 10, 6, 7, 'e', 1.4, 1);
+        oval(c, 6, 6.2, 1.2, 1.2, 0, 'r');
+        for (const x of [12, 16, 23, 27]) {
+          c.rect(x, 18, x + 2, 25, 'e');
+          oval(c, x + 1.5, 21.5, 1.3, 1.3, 0, 'y');
+          c.rect(x - 1, 25, x + 3, 25, 'y');
+        }
+        oval(c, 19.5, 15, 10, 5.2, 0, (_u, v) => (v < -0.6 ? 'w' : 'e'));
+        for (let x = 12; x <= 27; x += 3) c.put(x, 18, 'w');
+        oval(c, 19.5, 15, 3, 3, 0, (u, v) => {
+          const r = Math.hypot(u, v);
+          if (r < 0.4) return 'y';
+          if (r > 0.75) return Math.cos(8 * Math.atan2(v, u)) > 0 ? 'o' : undefined;
+          return 'o';
+        });
+        c.rect(19, 7, 20, 10, 'y');
+        oval(c, 19.5, 5.5, 3.2, 1.8, 0, (u, v) => (Math.hypot(u, v) < 0.45 ? 'b' : 'o'));
+        c.rect(27, 10, 29, 14, 'y');
+        oval(c, 31, 9.5, 4.6, 3.8, 0, (_u, v) => (v < -0.55 ? 'w' : 'e'));
+        oval(c, 35, 11.5, 2.6, 1.7, 0, 'e');
+        c.poly([28, 7, 30, 1.5, 32, 7], 'e');
+        c.poly([29.3, 6, 30.2, 3.5, 31, 6], 'k');
+        oval(c, 31.8, 8.8, 1.2, 1.2, 0, 'r');
+        c.put(31, 8, 'y');
+        c.put(37, 11, 'n');
+        c.line(33, 13, 36, 13, 'n');
+      });
+    },
+  },
+  {
+    title: 'Satellite over Saturn',
+    ...LARGE,
+    draw: (c) => {
+      // Deep space in blue and purple haze with stars.
+      c.fill((x, y) => {
+        const n = c.noise(x, y, 6, 2501);
+        return n > 0.55 ? 'p' : n < 0.3 ? 'k' : 'b';
+      });
+      c.speckle('w', 'bp', 0.04, 2502);
+      c.speckle('y', 'b', 0.015, 2503);
+      // Saturn: its rings tilted across a banded globe, the far half of the rings behind it.
+      const ring = (front: boolean): void =>
+        oval(c, 15, 19, 14, 4.2, -0.25, (u, v) => {
+          const r = Math.hypot(u, v);
+          if (r < 0.66 || (front ? v < 0 : v >= 0)) return undefined;
+          return r > 0.9 ? 'w' : r > 0.82 ? 'c' : r > 0.74 ? 'e' : 'y';
+        });
+      outlined(c, 'c', () => {
+        ring(false);
+        oval(c, 15, 19, 8.5, 8, 0, (_u, v, x, y) => {
+          const band = Math.floor((v + 1) * 4 + (c.noise(x, y, 3, 2504) - 0.5) * 0.8);
+          return 'oynoyon'[Math.max(0, Math.min(6, band))];
+        });
+        ring(true);
+      });
+      outlined(c, 'c', () => {
+        // The satellite: a gold body, two sky-blue panels in cells, a white dish.
+        c.rect(23, 5, 27, 7, 's');
+        c.rect(34, 5, 38, 7, 's');
+        c.fill((x, y, now) => (now === 's' && y >= 5 && y <= 7 && x % 2 === 0 ? 'b' : undefined));
+        c.line(28, 6, 33, 6, 'e');
+        c.rect(29, 4, 32, 8, 'y');
+        c.put(30, 5, 'o');
+        c.put(31, 7, 'o');
+        oval(c, 30.5, 10.5, 1.8, 1, 0, 'w');
+        c.put(30, 9, 'e');
+      });
+    },
+  },
+  {
+    title: 'Longship in a storm',
+    ...LARGE,
+    draw: (c) => {
+      // A storm sky in grey and purple with a white bolt, and a dark sea of heaving waves.
+      c.fill((x, y) => {
+        const n = c.noise(x, y, 5, 2601);
+        return n > 0.6 ? 'e' : n > 0.4 ? 'p' : 'b';
+      });
+      path(c, [[4, 0], [6, 3], [3, 6], [6, 9], [5, 12]], 'w');
+      outlined(c, 'c', () => {
+        // The ship: a curved brown hull of planks, a dragon prow and a curled stern, a striped sail, round shields.
+        c.line(20, 1, 20, 17, 'n');
+        c.fill((x, y) => {
+          if (y < 3 || y > 14) return undefined;
+          const bulge = Math.sin(((y - 3) / 11) * Math.PI) * 2;
+          if (x < 13 - bulge || x > 27 + bulge) return undefined;
+          return Math.floor((x - 13 + bulge) / 2.6) % 2 ? 'w' : 'r';
+        });
+        c.line(12, 3, 28, 3, 'n');
+        c.curve(8, 17, 5, 15, 6, 11, 'n', 2.2, 1.4);
+        oval(c, 6.8, 10.5, 1.4, 1.4, 0, 'n');
+        c.curve(32, 17, 35, 14, 34, 8, 'n', 2.4, 1.8);
+        oval(c, 35.5, 7.5, 2.4, 1.5, 0.3, 'g');
+        c.put(36, 7, 'y');
+        c.fill((x, y) => {
+          if (y < 16 || y > 21) return undefined;
+          const half = 13 - (y - 16) * 1.4;
+          if (Math.abs(x + 0.5 - 20) > half) return undefined;
+          return y === 19 ? 'o' : 'n';
+        });
+        for (let i = 0; i < 7; i++) oval(c, 10.5 + i * 3.2, 16.8, 1.3, 1.3, 0, (u, v) => (Math.hypot(u, v) < 0.4 ? 'n' : 'yrwy'[i % 4]));
+      });
+      // Waves in front of the hull: blue swells with sky-blue crests and white foam.
+      c.fill((x, y) => {
+        const top = 21 + Math.sin(x / 3.2) * 1.6 + (c.noise(x, y, 4, 2602) - 0.5) * 1.5;
+        if (y < top) return undefined;
+        if (y < top + 1) return hash(x, y, 2603) < 0.5 ? 'w' : 's';
+        return c.noise(x, y, 3, 2604) > 0.65 ? 's' : 'b';
+      });
+    },
+  },
+  {
+    title: 'Okapi in the rainforest',
+    ...LARGE,
+    draw: (c) => {
+      // Rainforest leaves in two greens with sky-blue gaps, mossy ground.
+      c.fill((x, y) => {
+        if (y >= 25 + Math.round((c.noise(x, y, 6, 2701) - 0.5) * 1.5)) return hash(x, y, 2702) < 0.12 ? 'y' : 'g';
+        const n = c.noise(x, y, 4, 2703);
+        return n > 0.66 ? 's' : n > 0.4 ? 'g' : 'd';
+      });
+      for (let i = 0; i < 10; i++) leaf(c, hash(i, 1, 2704) * 40, hash(i, 2, 2704) * 22, 4, 1.6, hash(i, 3, 2704) * Math.PI, i % 2 ? 'd' : 'g', i % 2 ? 'g' : 'd');
+      outlined(c, 'c', () => {
+        // The okapi facing left: dark brown body, a striped rump and legs, a pale face and big ears.
+        for (const x of [14, 17, 26, 29]) {
+          c.rect(x, 17, x + 1, 25, 'w');
+          for (let y = 17; y <= 21; y += 2) c.rect(x, y, x + 1, y, 'n');
+        }
+        c.curve(30, 12, 31.5, 15, 31, 19, 'n', 1.2, 1);
+        oval(c, 22, 14, 9, 4.6, 0, (u, v) => (u > 0.45 && Math.floor((v + 1) * 4.5) % 2 === 1 ? 'w' : 'n'));
+        c.curve(15, 13, 11.5, 10, 10, 6, 'n', 4, 3);
+        oval(c, 8, 7.5, 3.4, 2.3, 0.45, (u) => (u < -0.2 ? 'w' : 'e'));
+        oval(c, 9.5, 3.8, 1.4, 2.2, 0.4, 'n');
+        oval(c, 12, 4.4, 1.3, 2, -0.3, 'n');
+        c.put(8, 6, 'c');
+        c.put(5, 9, 'n');
+      });
+    },
+  },
+  {
+    title: 'Sushi platter from above',
+    ...LARGE,
+    draw: (c) => {
+      // A dark blue table, mottled sky-blue, under a wooden board.
+      c.fill((x, y) => (c.noise(x, y, 4, 2801) > 0.62 ? 's' : 'b'));
+      outlined(c, 'c', () => {
+        c.fill((x, y) => {
+          const e = Math.min(x - 3, 36 - x, y - 3, 26 - y) + (c.noise(x, y, 3, 2802) - 0.5);
+          if (e < 0) return undefined;
+          return c.noise(x * 2.5, y * 0.4, 3, 2803) > 0.6 ? 'o' : 'n';
+        });
+        // Six rolls: green nori, white rice, a salmon, tuna or cucumber heart.
+        for (let i = 0; i < 6; i++)
+          oval(c, 8 + i * 4.8, 8.5, 2.3, 2.3, 0, (u, v) => {
+            const r = Math.hypot(u, v);
+            return r > 0.78 ? 'd' : r > 0.4 ? 'w' : 'org'[i % 3];
+          });
+        // Four nigiri: rice under a slice of salmon or tuna with pale stripes.
+        for (let i = 0; i < 4; i++)
+          oval(c, 9 + i * 7, 15.5, 3.2, 1.8, 0, (u, v, x) => (v > 0.55 ? 'w' : i % 2 ? 'r' : (x + Math.round(u * 2)) % 3 === 0 ? 'w' : 'o'));
+        oval(c, 9, 21.5, 3, 2.4, 0, (u, v) => (Math.hypot(u, v) > 0.7 ? 'w' : 'c'));
+        oval(c, 19, 21.5, 2.6, 1.8, 0, 'k');
+        c.fill((x, y, now) => (now === 'k' && (x + y) % 3 === 0 ? 'w' : undefined));
+        oval(c, 26.5, 21.5, 1.6, 1.3, 0, 'g');
+        c.line(29, 23, 35, 19, 'y');
+        c.line(30, 24, 36, 20, 'y');
+      });
+    },
+  },
+  {
+    title: 'Snail on a toadstool',
+    ...LARGE,
+    draw: (c) => {
+      // A shady wood in dark and light green with patches of sun, mossy ground below.
+      c.fill((x, y) => {
+        if (y >= 27 + Math.round((c.noise(x, y, 6, 2901) - 0.5) * 1.5)) return hash(x, y, 2902) < 0.25 ? 'd' : 'g';
+        const n = c.noise(x, y, 5, 2903);
+        return n > 0.68 ? 'y' : n > 0.42 ? 'g' : 'd';
+      });
+      outlined(c, 'c', () => {
+        // The toadstool: a red cap with white spots, pink gills, a white stem with a skirt.
+        c.fill((x, y) => (x >= 16 && x <= 23 && y >= 18 && y <= 27 ? (x === 23 || (x === 22 && y % 2) ? 'e' : 'w') : undefined));
+        c.rect(15, 20, 24, 20, 'e');
+        oval(c, 19.5, 17.5, 14, 2, 0, (_u, v) => (v < 0 ? undefined : 'k'));
+        oval(c, 19.5, 17.5, 14, 9.5, 0, (_u, v) => (v > 0 ? undefined : 'r'));
+        for (let i = 0; i < 8; i++) {
+          const a = Math.PI * (0.12 + (0.76 * i) / 7);
+          oval(c, 19.5 - Math.cos(a) * 9.5, 17.5 - Math.sin(a) * 5 + (i % 2) * 1.5, 1.6, 1.1, 0, 'w');
+        }
+        // The snail on top: a grey body with stalked eyes, a shell in an orange and yellow spiral.
+        oval(c, 19.5, 7.6, 7.5, 1.5, 0, 'e');
+        c.line(12, 7, 11, 3, 'e');
+        c.line(13, 7, 14, 3, 'e');
+        c.put(11, 2, 'n');
+        c.put(14, 2, 'n');
+        oval(c, 22, 4.6, 4, 3.8, 0, (u, v) => {
+          const r = Math.hypot(u, v);
+          if (r > 0.85) return 'n';
+          const turn = Math.atan2(v, u) / (2 * Math.PI);
+          return Math.floor(r * 3 + turn + 1) % 2 ? 'o' : 'y';
+        });
+      });
+    },
+  },
+  {
+    title: 'Red panda on a branch',
+    ...LARGE,
+    draw: (c) => {
+      // Misty sky between dark foliage at the top corners.
+      c.fill((x, y) => (c.noise(x, y, 4, 3001) > 0.55 ? 'w' : 's'));
+      oval(c, 2, 1, 12, 8, 0, 'd', 0.3, 3002);
+      oval(c, 39, 3, 10, 9, 0, 'd', 0.3, 3003);
+      oval(c, 2, 29, 9, 5, 0, 'd', 0.3, 3006);
+      c.fill((x, y, now) => (now === 'd' && c.noise(x, y, 2, 3004) > 0.6 ? 'g' : undefined));
+      c.curve(0, 22, 18, 19.5, 39, 23, 'e', 2.6, 2);
+      c.fill((x, y, now) => (now === 'e' && c.at(x, y - 1) !== 'e' && hash(x, y, 3005) < 0.7 ? 'g' : undefined));
+      outlined(c, 'c', () => {
+        // The tail hangs in rust and brown rings below the branch.
+        for (let i = 0; i < 9; i++) {
+          const t = i / 8;
+          const px = (1 - t) ** 2 * 24 + 2 * (1 - t) * t * 31 + t * t * 30;
+          const py = (1 - t) ** 2 * 17 + 2 * (1 - t) * t * 20 + t * t * 28;
+          oval(c, px, py, 2.4 - t * 0.5, 1.6, 0.2, i % 2 ? 'n' : 'o');
+        }
+        // The body: rust above, dark brown belly and legs, front paws over the branch.
+        c.rect(13, 17, 14, 21, 'n');
+        c.rect(20, 17, 21, 21, 'n');
+        oval(c, 18.5, 14, 6.5, 5, 0, (u, v) => (v > 0.45 ? 'n' : u > 0.4 ? 'r' : 'o'));
+        // The head: white ears and brows, white muzzle, dark eyes with red tear marks.
+        oval(c, 10, 4.6, 1.8, 1.8, 0, (u, v) => (Math.hypot(u, v) < 0.5 ? 'n' : 'w'));
+        oval(c, 17, 4.6, 1.8, 1.8, 0, (u, v) => (Math.hypot(u, v) < 0.5 ? 'n' : 'w'));
+        oval(c, 13.5, 8.5, 5, 4, 0, 'o');
+        oval(c, 13.5, 10.4, 2.4, 1.6, 0, 'w');
+        oval(c, 11, 6.8, 1.2, 0.8, 0, 'w');
+        oval(c, 16, 6.8, 1.2, 0.8, 0, 'w');
+        c.put(11, 8, 'c');
+        c.put(16, 8, 'c');
+        c.put(11, 9, 'r');
+        c.put(16, 9, 'r');
+        c.put(13, 10, 'c');
+      });
+    },
+  },
+  {
+    title: 'Tea glasses on a tray',
+    ...LARGE,
+    draw: (c) => {
+      // A blue kilim with small yellow and orange crosses.
+      c.fill((x, y) => {
+        const sx = (x + (Math.floor(y / 5) % 2) * 3) % 6;
+        const d = Math.abs(sx - 3) + Math.abs((y % 5) - 2);
+        return d === 0 ? 'o' : d === 1 ? 'y' : c.noise(x, y, 5, 3101) > 0.65 ? 'p' : 'b';
+      });
+      outlined(c, 'c', () => {
+        // A round silver tray, three tulip glasses of red tea on white saucers, sugar cubes.
+        oval(c, 20, 21, 18, 7.5, 0, (u, v) => (Math.hypot(u, v) > 0.88 ? 'w' : 'e'));
+        for (const [cx, base] of [[10, 22], [20, 25], [30, 22]] as const) {
+          oval(c, cx, base, 4.4, 1.4, 0, (u, v) => (Math.hypot(u, v) > 0.7 ? 'r' : 'w'));
+          c.fill((x, y) => {
+            const top = base - 15;
+            if (y < top || y > base - 1) return undefined;
+            const t = (y - top) / 14;
+            const w = 2.8 - Math.sin(t * Math.PI * 0.9) * 1.1 + (t > 0.7 ? (t - 0.7) * 3 : 0);
+            const dx = Math.abs(x + 0.5 - cx);
+            if (dx > w) return undefined;
+            if (dx > w - 1 || y === top) return 'w';
+            return y < top + 3 ? 'o' : 'r';
+          });
+        }
+        for (const [x, y] of [[23, 15], [26, 16], [14, 17]] as const) c.rect(x, y, x + 1, y + 1, 'w');
+      });
+    },
+  },
+  {
+    title: 'Farm in tulip fields',
+    ...LARGE,
+    draw: (c) => {
+      c.fill(() => 's');
+      cloud(c, 5, 2, 7, 3201);
+      cloud(c, 33, 1, 6, 3202);
+      land(c, 13, 1, 'd', 3203, 2);
+      // The farm: a red barn with a white door and trim, a grey silo with a white dome, a dark tree.
+      outlined(c, 'c', () => {
+        c.poly([11, 15, 25, 15, 25, 9, 18, 4.5, 11, 9], 'r');
+        c.line(11, 9, 18, 4, 'w');
+        c.line(18, 4, 25, 9, 'w');
+        c.rect(16, 11, 19, 15, 'w');
+        c.line(16, 11, 19, 15, 'r');
+        c.rect(27, 5, 30, 15, 'e');
+        oval(c, 28.5, 5, 2, 1.6, 0, 'w');
+        oval(c, 7, 10, 3.2, 3.6, 0, 'd', 0.3, 3204);
+        c.line(7, 13, 7, 15, 'n');
+      });
+      // Rows of tulips fanning out from the farm, green between them.
+      c.fill((x, y) => {
+        if (y < 16 + Math.round((c.noise(x, y, 6, 3205) - 0.5) * 1.2)) return undefined;
+        const t = (x + 0.5 - 20) / (y - 11) + (c.noise(x, y, 3, 3206) - 0.5) * 0.15;
+        const k = Math.floor(t * 4 + 100);
+        const f = t * 4 + 100 - k;
+        if (f < 0.2) return 'g';
+        return 'rykpo'[k % 5];
+      });
+      c.speckle('d', 'rykpo', 0.05, 3207);
+    },
+  },
 ];

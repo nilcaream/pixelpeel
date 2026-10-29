@@ -94,6 +94,15 @@ export const SUBJECT: Record<string, [string, [number, number, number, number]][
   'Citrus slices': [['okrydgwc', [2, 1, 39, 29]]],
   'Campfire on a beach': [['roywnc', [9, 5, 31, 29]], ['n', [0, 24, 9, 29]], ['we', [28, 1, 35, 8]]],
   'Combine in a wheat field': [['gdrc', [3, 6, 37, 26]], ['sy', [20, 7, 37, 22]]],
+  'Clockwork robot dog': [['ewyokrn', [4, 1, 38, 25]]],
+  'Satellite over Saturn': [['oyncew', [0, 9, 31, 29]], ['syoew', [22, 3, 39, 12]]],
+  'Longship in a storm': [['nrwgyoc', [5, 0, 38, 22]]],
+  'Okapi in the rainforest': [['nwec', [3, 1, 33, 26]]],
+  'Sushi platter from above': [['dworgkcyn', [2, 2, 37, 27]]],
+  'Snail on a toadstool': [['rwkecn', [5, 1, 34, 28]], ['oy', [17, 0, 27, 9]]],
+  'Red panda on a branch': [['onrc', [5, 2, 34, 29]], ['w', [8, 2, 19, 12]]],
+  'Tea glasses on a tray': [['ewroc', [1, 8, 39, 29]]],
+  'Farm in tulip fields': [['rwecn', [3, 2, 31, 16]], ['rykpo', [0, 16, 39, 29]]],
 };
 
 /** A remix's title → the title of the shipped picture it was drawn from. */
@@ -122,6 +131,15 @@ export const REMIX: Record<string, string> = {
   'Citrus slices': 'Watermelon slice',
   'Campfire on a beach': 'Campfire and tent',
   'Combine in a wheat field': 'Tractor in a field',
+  'Clockwork robot dog': 'Robot',
+  'Satellite over Saturn': 'Space station over a planet',
+  'Longship in a storm': 'Pirate ship',
+  'Okapi in the rainforest': 'Zebra at a waterhole',
+  'Sushi platter from above': 'Pizza from above',
+  'Snail on a toadstool': 'Snail in the garden',
+  'Red panda on a branch': 'Squirrel with an acorn',
+  'Tea glasses on a tray': 'Teapot and cup',
+  'Farm in tulip fields': 'Red barn and silo',
 };
 
 /** Pictures alike enough that two of them are never played back to back. */
