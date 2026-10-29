@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { deal, perturb, play } from './generator.ts';
+import { autopilotPick, onAutopilot } from './autopilot.ts';
+import { deal, perturb, play, replay } from './generator.ts';
 import { HOUSE, HOUSE_RULES } from './level.ts';
-import { parsePicture } from './picture.ts';
+import levelsFile from './levels.json';
+import type { Level } from './levels.ts';
+import { paintedPicture, parsePicture } from './picture.ts';
 import { seededRng } from './rng.ts';
-import { createBoard, pick, EMPTY, type Board } from './rules.ts';
+import { createBoard, pick, status, EMPTY, type Board } from './rules.ts';
 import { AT_BUCKET, LAUNCH_GAP, createScene, freeSlot, idle, place, squareOf, tick, type Scene } from './scene.ts';
 
 const COLOURS = { A: '#ff0000', B: '#ffff00' };
 const A = 0;
 const B = 1;
+const levels = levelsFile as unknown as Level[];
 
 /** Picks a column on the board and shows it on the scene, as the page does. */
 function both(board: Board, scene: Scene, column: number): [Board, Scene] {
@@ -120,4 +124,45 @@ describe('the scene', () => {
       expect(Array.from(scene.cells), `seed ${seed}`).toEqual(Array.from(board.cells));
     }
   });
+
+  it('plays every shipped level as the page does to the board replay() gives, with the same picks and the same launch rhythm', () => {
+    // The page's loop: the autopilot's pick or the player's once a bucket is free on screen, then a tick.
+    for (const level of levels) {
+      const picture = paintedPicture(level.rows, level.overrides);
+      const buckets = level.structure.buckets;
+      for (const player of ['sensible', 'random'] as const) {
+        const order = play(picture, level.columns, buckets, 1, player).picks;
+        const at = `level ${level.number} ${player}`;
+        let board = createBoard(picture, level.columns, buckets);
+        let scene = createScene(board);
+        const picks: number[] = [];
+        const last = scene.slots.map(() => -Infinity);
+        while (status(board) === 'playing' || !idle(scene)) {
+          const auto = autopilotPick(board, scene);
+          const column = auto >= 0 ? auto : status(board) === 'playing' && !onAutopilot(board) && freeSlot(scene) >= 0 ? (order[picks.length] as number) : -1;
+          if (column >= 0) {
+            expect(column, at).toBe(order[picks.length]);
+            picks.push(column);
+            [board, scene] = both(board, scene, column);
+          }
+          if (idle(scene)) {
+            if (column < 0) throw new Error(`${at}: the page waits for a bucket while nothing moves`);
+            continue;
+          }
+          scene = tick(scene);
+          // One dot at a time out of a bucket, never sooner than LAUNCH_GAP ticks after the one before.
+          for (const dot of scene.dots.filter((d) => d.pos === 0)) {
+            expect(scene.ticks - (last[dot.slot] as number), at).toBeGreaterThanOrEqual(LAUNCH_GAP);
+            last[dot.slot] = scene.ticks;
+          }
+          scene.slots.forEach((b, i) => b || (last[i] = -Infinity));
+        }
+        const rules = replay(picture, level.columns, buckets, order);
+        expect(picks, at).toEqual(order);
+        expect(status(board), at).toBe(status(rules));
+        expect(Array.from(board.cells), at).toEqual(Array.from(rules.cells));
+        expect(Array.from(scene.cells), at).toEqual(Array.from(rules.cells));
+      }
+    }
+  }, 240_000);
 });
