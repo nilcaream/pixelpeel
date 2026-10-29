@@ -1,11 +1,11 @@
 // What the player sees: dots that fly out of the buckets to the pixels the rules have lifted. The rules
-// (rules.ts) have already decided everything; the scene only shows it, in the rules' order, and decides
-// nothing but when. A tick moves every dot one cell and sends new dots out.
+// (rules.ts) have already decided everything; the scene only shows it, and decides nothing but when. A tick
+// moves every dot one cell and sends new dots out.
 //
 // Dots walk on the frame grid: the picture plus a ring one cell wide around it. A bucket sends a dot for
-// each pixel its pot lifted, in the order the rules lifted them, as soon as the way to it is clear on
-// screen; the dot and the pixel vanish together when it gets there. A bucket whose last dot has left is
-// gone at once, and its place is free for the next pot.
+// each pixel its pot lifted, the first in the rules' order whose way is open: over what is empty on screen,
+// or right behind a dot already on its way to a pixel next to it. The dot and the pixel vanish together when
+// it gets there. A bucket whose last dot has left is gone at once, and its place is free for the next pot.
 
 import { EMPTY, type Board, type Held, type Lift } from './rules.ts';
 
@@ -166,9 +166,13 @@ function descend(s: Scene, dist: Int32Array, from: number): number[] {
   return cells;
 }
 
-/** The shortest way from a bucket to a pixel over what is empty on screen, both ends included; null while there is none. */
-function wayTo(s: Scene, bucket: number, square: number): number[] | null {
-  const dist = walk(s, entryCell(s, bucket));
+/**
+ * The shortest way from a bucket's entry cell to a pixel, both ends included; null while there is none. It goes
+ * over what is empty on screen (dist, the walk from the entry cell), or behind a dot already out from the same
+ * entry cell whose pixel touches this one: along that dot's route and one step on. That dot is ahead at every
+ * step, so each square on the way is empty by the time this dot gets there.
+ */
+function wayTo(s: Scene, entry: number, dist: Int32Array, square: number): number[] | null {
   const fw = s.width + 2;
   const pixel = (Math.floor(square / s.width) + 1) * fw + (square % s.width) + 1;
   let best = -1;
@@ -177,8 +181,14 @@ function wayTo(s: Scene, bucket: number, square: number): number[] | null {
     const d = dist[next] ?? -1;
     if (d >= 0 && (best < 0 || d < (dist[best] as number))) best = next;
   }
-  if (best < 0) return null;
-  return [...descend(s, dist, best).reverse(), best, pixel];
+  let way = best < 0 ? null : [...descend(s, dist, best).reverse(), best, pixel];
+  for (const dot of s.dots) {
+    if (dot.route[1] !== entry || dot.pos < 1) continue;
+    const ahead = dot.route[dot.route.length - 1] as number;
+    if (!STEPS.some(([dx, dy]) => ahead === pixel + dy * fw + dx)) continue;
+    if (!way || dot.route.length < way.length) way = [...dot.route.slice(1), pixel];
+  }
+  return way;
 }
 
 /** One step of time: every dot moves one cell, a dot at its pixel vanishes with it, and new dots set off. */
@@ -195,9 +205,14 @@ export function tick(s: Scene): Scene {
     if (!b) return;
     b.sinceLaunch += 1;
     if (!b.queue.length || b.sinceLaunch < LAUNCH_GAP) return;
-    const way = wayTo(next, i, b.queue[0] as number);
+    // The first pixel in the queue that a dot can get to now: one whose way is still shut waits, the others do not.
+    const entry = entryCell(next, i);
+    const dist = walk(next, entry);
+    let way: number[] | null = null;
+    let at = 0;
+    for (; at < b.queue.length && !way; at++) way = wayTo(next, entry, dist, b.queue[at] as number);
     if (!way) return;
-    b.queue.shift();
+    b.queue.splice(at - 1, 1);
     next.dots.push({ slot: i, colour: b.colour, route: [AT_BUCKET, ...way], pos: 0 });
     b.sent += 1;
     b.sinceLaunch = 0;
