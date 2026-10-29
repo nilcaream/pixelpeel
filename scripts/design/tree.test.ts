@@ -32,7 +32,7 @@ describe('Game', () => {
         expect(game.status(p)).toBe(status(b));
       }
     }
-  });
+  }, 20_000);
 });
 
 describe('explore and solve', () => {

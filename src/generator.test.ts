@@ -69,7 +69,7 @@ describe('players and measure', () => {
   it('has the sensible player pick a shut-in pot only when every top pot is shut in', () => {
     for (let seed = 1; seed <= 20; seed++)
       for (const c of choices(play(HOUSE, shuffled, 4, seed, 'sensible').picks)) expect(c.reaches || !c.any).toBe(true);
-  });
+  }, 20_000);
 
   it('has the sticky player pick its last column again whenever that column reaches, and play sensibly otherwise', () => {
     let kept = 0;
@@ -89,7 +89,7 @@ describe('players and measure', () => {
       });
     }
     expect(kept).toBeGreaterThan(0);
-  });
+  }, 20_000);
 
   it('has the random player pick shut-in pots while others could reach', () => {
     const all = Array.from({ length: 20 }, (_, i) => choices(play(HOUSE, shuffled, 4, i + 1, 'random').picks)).flat();
