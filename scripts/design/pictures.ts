@@ -103,6 +103,16 @@ export const SUBJECT: Record<string, [string, [number, number, number, number]][
   'Red panda on a branch': [['onrc', [5, 2, 34, 29]], ['w', [8, 2, 19, 12]]],
   'Tea glasses on a tray': [['ewroc', [1, 8, 39, 29]]],
   'Farm in tulip fields': [['rwecn', [3, 2, 31, 16]], ['rykpo', [0, 16, 39, 29]]],
+  'Giraffe at dusk': [['ync', [8, 0, 39, 19]], ['yc', [8, 19, 39, 29]]],
+  'Bonsai on the table': [['ndgrkbsc', [3, 0, 36, 25]]],
+  'Chameleon on the move': [['oryc', [1, 4, 30, 19]], ['ory', [1, 19, 39, 29]], ['or', [30, 4, 39, 19]]],
+  'Flamingo on one leg': [['kprc', [7, 0, 34, 29]], ['w', [7, 0, 12, 5]]],
+  'Jellyfish adrift': [['kwro', [6, 1, 34, 29]], ['p', [6, 1, 34, 20]]],
+  'Snow monkey taking a bath': [['ekr', [5, 3, 35, 25]]],
+  'Nest of blue eggs': [['noycbs', [5, 7, 35, 27]]],
+  'Red crab on the sand': [['rc', [1, 1, 39, 28]]],
+  'Kingfisher on the dive': [['bsco', [0, 1, 39, 25]]],
+  'Snake in the leaf litter': [['rcy', [0, 5, 39, 25]]],
 };
 
 /** A remix's title → the title of the shipped picture it was drawn from. */

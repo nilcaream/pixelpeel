@@ -2,7 +2,7 @@
 // gets its pots, its band and its place in the order. Every picture is one subject in its setting, drawn
 // with the noise helpers of the Canvas, so its horizons wander and its tones meet in broken edges.
 
-import { type Canvas, LARGE, type Scene, cloud, hash, land, leaf, outlined, ribbon, rim, ripples, sprite, spriteFlip, streaks } from './scenes.ts';
+import { type Canvas, LARGE, type Scene, cloud, frac, hash, land, leaf, outlined, pine, ribbon, rim, ripples, sprite, spriteFlip, streaks } from './scenes.ts';
 
 /** A turned ellipse; `col` is a colour or a painter given the ellipse's own coordinates (u along, v across, both −1..1). */
 function oval(c: Canvas, cx: number, cy: number, rx: number, ry: number, ang: number, col: string | ((u: number, v: number, x: number, y: number) => string | undefined), rough = 0, salt = 0): void {
@@ -22,6 +22,595 @@ function oval(c: Canvas, cx: number, cy: number, rx: number, ry: number, ang: nu
 function path(c: Canvas, pts: readonly (readonly [number, number])[], col: string): void {
   for (let i = 1; i < pts.length; i++) c.line(...(pts[i - 1] as [number, number]), ...(pts[i] as [number, number]), col);
 }
+
+// Ten pictures drawn by Retell: each from a description in words only, never from the picture it describes.
+
+/** How far a square's centre lies from an ellipse's centre, 1 on its edge. */
+const ell = (x: number, y: number, cx: number, cy: number, rx: number, ry: number): number => Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry);
+
+type Sample = [number, number, number];
+/** A path sampled finely, each sample with the arc length up to it. */
+function sampled(f: (t: number) => [number, number], n = 240): Sample[] {
+  const out: Sample[] = [];
+  let s = 0;
+  let [px, py] = f(0);
+  for (let i = 0; i <= n; i++) {
+    const [x, y] = f(i / n);
+    s += Math.hypot(x - px, y - py);
+    out.push([x, y, s]);
+    px = x;
+    py = y;
+  }
+  return out;
+}
+/** The distance from a square's centre to the path, and the arc length where it is nearest. */
+function nearest(pts: Sample[], x: number, y: number): [number, number] {
+  let best = Infinity;
+  let at = 0;
+  for (const [px, py, s] of pts) {
+    const d = Math.hypot(x + 0.5 - px, y + 0.5 - py);
+    if (d < best) {
+      best = d;
+      at = s;
+    }
+  }
+  return [best, at];
+}
+/** A tube along a path, `width(s)` wide on each side, painted by arc length. */
+function tube(c: Canvas, pts: Sample[], width: (s: number) => number, paint: (s: number, d: number) => string | undefined): void {
+  c.fill((x, y) => {
+    const [d, s] = nearest(pts, x, y);
+    return d <= width(s) ? paint(s, d) : undefined;
+  });
+}
+/** How close a square lies to the wall between two cells of a jittered grid: 0 on the wall. */
+function cellGap(x: number, y: number, size: number, salt: number): number {
+  const gx = Math.floor(x / size);
+  const gy = Math.floor(y / size);
+  let d0 = 99;
+  let d1 = 99;
+  for (let j = gy - 1; j <= gy + 1; j++)
+    for (let i = gx - 1; i <= gx + 1; i++) {
+      const d = Math.hypot(x + 0.5 - (i + 0.2 + hash(i, j, salt) * 0.6) * size, y + 0.5 - (j + 0.2 + hash(i, j, salt + 1) * 0.6) * size);
+      if (d < d0) {
+        d1 = d0;
+        d0 = d;
+      } else if (d < d1) d1 = d;
+    }
+  return d1 - d0;
+}
+/** Turns every square of the working letter `from` into `to`. */
+const settle = (c: Canvas, from: string, to: string): void => c.fill((_x, _y, now) => (now === from ? to : undefined));
+
+/** A flat-topped savanna tree: a leaning forked trunk and a broad ragged crown with sky showing through. */
+function acacia(c: Canvas, cx: number, top: number, half: number, ground: number, salt: number): void {
+  const mid = (ground + top) / 2 + 2;
+  c.curve(cx + 0.5, ground + 1, cx - 0.5, mid, cx - half * 0.45, top + 1, 'e', 1.3, 0.8);
+  c.curve(cx, mid, cx + half * 0.2, top + 3, cx + half * 0.5, top + 1, 'e', 1, 0.7);
+  c.fill((x, y) => {
+    const u = (x + 0.5 - cx) / half;
+    const v = y + 0.5 - top;
+    if (Math.abs(u) > 1 + (c.noise(0, y, 2, salt + 1) - 0.5) * 0.3) return undefined;
+    if (v < (c.noise(x, 1, 2.5, salt + 2) - 0.5) * 1.4 || v > 2.1 * (1 - u * u * 0.5) + (c.noise(x, 0, 2, salt) - 0.5) * 1.2) return undefined;
+    return hash(x, y, salt + 3) < 0.08 ? undefined : 'e';
+  });
+}
+
+const giraffe: Scene = {
+  title: 'Giraffe at dusk',
+  ...LARGE,
+  draw(c) {
+    // The evening sky in wavy bands: blue above, then purple, pink, and an orange glow at the horizon.
+    c.fill((x, y) => {
+      const t = y + (c.noise(x, y, 5, 501) - 0.5) * 3.5 + Math.sin(x / 4 + y / 3) * 0.7;
+      return t < 5.5 ? 'b' : t < 10.5 ? 'p' : t < 16 ? 'k' : 'o';
+    });
+    // Long thin clouds: pink streaks in the purple, purple in the pink, yellow in the glow; the first stars.
+    c.fill((x, y, now) => {
+      const s = c.noise(x * 0.5, y * 2.2, 3, 502);
+      if (now === 'p' && s > 0.66) return 'k';
+      if (now === 'k' && s < 0.3) return 'p';
+      if (now === 'o' && s > 0.62) return 'y';
+      if (now === 'b' && hash(x, y, 503) < 0.06) return 'w';
+      return undefined;
+    });
+    // The sun sinking at the horizon on the left.
+    c.fill((x, y) => (ell(x, y, 10, 18.5, 2.6, 2.4) < 1 ? 'y' : undefined));
+    // The ground: brown earth, lit orange in places, a few dark stones.
+    const horizon = (x: number): number => 19 + c.noise(x, 0, 6, 504) * 1.6 + Math.sin(x / 5) * 0.4;
+    c.fill((x, y) => {
+      if (y + 0.5 < horizon(x)) return undefined;
+      const h = hash(x, y, 505);
+      return h < 0.08 ? 'o' : h < 0.12 ? 'c' : 'n';
+    });
+    acacia(c, 6, 11, 6, 20, 510);
+    acacia(c, 37, 9, 5.5, 20, 520);
+    // The giraffe, facing left: legs, body, the long neck up to the head at the top edge (drawn in Y, patched after).
+    const feet: [number, number][] = [];
+    for (const [x, lean] of [[19.5, -0.8], [22.2, 0.2], [31.2, -0.4], [34, 0.6]] as const) {
+      c.curve(x, 17, x + lean * 0.3, 22, x + lean, 28.5, 'Y', 1.9, 1.4);
+      feet.push([Math.floor(x + lean), 28]);
+    }
+    c.blob(27, 14.5, 9, 4.4, 'Y', undefined, undefined, 540, 0.12);
+    c.blob(20.5, 13.2, 4, 4, 'Y', undefined, undefined, 541, 0.1);
+    c.blob(34.5, 14.6, 3.4, 3.4, 'Y', undefined, undefined, 544, 0.1);
+    c.curve(20.5, 12.5, 17, 6, 15.5, 2.8, 'Y', 4.4, 2.8);
+    c.blob(13.8, 2.2, 3.4, 1.9, 'Y', undefined, undefined, 542, 0.1);
+    c.blob(10.6, 3, 2, 1.4, 'Y', undefined, undefined, 543, 0.1);
+    c.put(17, 1, 'Y');
+    c.curve(37.5, 13.5, 38.5, 17, 38.5, 21, 'Y', 0.8, 0.6);
+    // Brown patches with pale lines between them; the legs stay plain below the knee.
+    c.fill((x, y, now) => (now === 'Y' && y < 21 && y > 1 && cellGap(x, y, 3, 550) > 0.7 ? 'n' : undefined));
+    // The mane down the back of the neck, the horns, the eye, hooves and the tail tuft.
+    c.fill((x, y, now) => (now === 'Y' && y > 3 && y < 12 && x > 15 && c.at(x + 1, y) !== 'Y' && c.at(x + 1, y) !== 'n' ? 'n' : undefined));
+    for (const [x, y] of [[14, 0], [16, 0], [13, 2], [9, 3], [38, 21], [38, 22]] as const) c.put(x, y, 'c');
+    settle(c, 'Y', 'y');
+    // Dark green grass along the bottom, light tips catching the last light.
+    c.fill((x, y) => {
+      const top = 25 + (c.noise(x, 0, 3, 530) - 0.5) * 3 + (hash(x, 0, 531) < 0.3 ? -1.5 : 0) - Math.max(0, 4 - Math.min(x, 39 - x)) * 1.8;
+      if (y + 0.5 < top) return undefined;
+      return hash(x, y, 532) < 0.16 || (y + 0.5 < top + 1 && hash(x, y, 533) < 0.5) ? 'g' : 'd';
+    });
+    for (const [x, y] of feet) c.put(x, y, 'c');
+  },
+};
+
+/** A cloud of bonsai leaves: dark below, lit above, with tufts of each colour in the other. */
+function pad(c: Canvas, cx: number, cy: number, rx: number, ry: number, salt: number): void {
+  c.fill((x, y) => {
+    const d = ell(x, y, cx, cy, rx, ry) + (c.noise(x, y, 1.6, salt) - 0.5) * 0.5;
+    if (d > 1) return undefined;
+    const lit = (y + 0.5 - cy) / ry + ((x + 0.5 - cx) / rx) * 0.4 < -0.1 + (hash(x, y, salt + 1) - 0.5) * 0.6;
+    const flip = hash(x, y, salt + 2) < 0.08;
+    return lit !== flip ? 'g' : 'd';
+  });
+}
+
+const bonsai: Scene = {
+  title: 'Bonsai on the table',
+  ...LARGE,
+  draw(c) {
+    // The warm wall: orange plaster clouded with yellow, and a round yellow paper window behind the tree flecked orange.
+    c.fill((x, y) => {
+      const v = c.noise(x, y, 4, 601) + c.noise(x, y, 1.5, 602) * 0.35;
+      return ell(x, y, 20, 11.5, 13.5, 13) + (c.noise(x, y, 2, 603) - 0.5) * 0.08 < 1 ? (v > 0.95 ? 'o' : 'y') : v > 0.8 ? 'y' : 'o';
+    });
+    // The table: brown wood with dark grain.
+    const edge = (x: number): number => 25.6 + (c.noise(x, 0, 6, 610) - 0.5) * 0.8;
+    c.fill((x, y) => {
+      if (y + 0.5 < edge(x)) return undefined;
+      const g = frac((y + c.noise(x, y, 5, 611) * 2.5) / 1.8);
+      return g < 0.22 && hash(x, y, 612) > 0.35 ? 'c' : 'n';
+    });
+    // Moss heaped in the pot.
+    c.blob(20, 20.6, 7, 1.4, 'd', undefined, undefined, 620, 0.2);
+    c.fill((x, y, now) => (now === 'd' && y < 21 && hash(x, y, 621) < 0.35 ? 'g' : undefined));
+    // The trunk twisting up out of the moss, and the limbs out to the three leaf clouds.
+    c.blob(21, 20.4, 2.5, 1, 'n', undefined, undefined, 622, 0.1);
+    c.curve(21, 21, 13, 17, 17, 12.5, 'n', 2.6, 1.6);
+    c.curve(17, 12.5, 22, 10, 21, 5, 'n', 1.6, 1);
+    c.curve(16, 14, 12, 13.5, 9, 11.5, 'n', 1.2, 0.8);
+    c.curve(19, 11, 25, 11, 29, 8.5, 'n', 1.2, 0.8);
+    c.fill((x, y, now) => (now === 'n' && y < 21 && hash(x, y, 623) < 0.14 ? 'c' : undefined));
+    pad(c, 8.5, 10.5, 8, 4.3, 630);
+    pad(c, 21, 5, 9.2, 4.6, 640);
+    pad(c, 31.2, 9.5, 8, 4.2, 650);
+    // Red blossoms on the right side, a few with a pink petal; two fallen on the table.
+    for (let i = 0; i < 16; i++) {
+      const x = Math.round(24 + hash(i, 1, 660) * 11);
+      const y = Math.round(3 + hash(i, 2, 660) * 8);
+      if (c.at(x, y) !== 'd' && c.at(x, y) !== 'g') continue;
+      c.put(x, y, 'r');
+      if (hash(i, 3, 660) < 0.4) c.put(x + 1, y, 'k');
+    }
+    c.put(31, 27, 'r');
+    c.put(34, 26, 'k');
+    // The shallow blue pot: curved rim and foot, sky-blue glaze running down from the rim, a white glint.
+    c.fill((x, y) => {
+      const u = (x + 0.5 - 20) / 11;
+      if (Math.abs(u) > 1 - (y + 0.5 - 21) * 0.04) return undefined;
+      if (y + 0.5 < 21 + u * u * 0.8 || y + 0.5 > 25.8 - u * u * 0.9) return undefined;
+      return y + 0.5 < 22.4 + u * u * 0.8 + hash(x, 0, 670) * 1.2 ? 's' : 'b';
+    });
+    c.put(12, 23, 'w');
+    c.put(13, 24, 'w');
+    for (const x of [12, 13, 26, 27]) c.put(x, 25, 'c');
+    c.put(4, 21, 'e');
+  },
+};
+
+const chameleon: Scene = {
+  title: 'Chameleon on the move',
+  ...LARGE,
+  draw(c) {
+    // The sky, deeper blue at the very top, with white clouds shaded grey underneath.
+    c.fill((x, y) => (y + c.noise(x, 0, 5, 701) * 3 < 3 ? 'b' : y < 18 && c.noise(x, y, 5, 702) > 0.7 ? 'w' : 's'));
+    c.fill((x, y, now) => (now === 'w' && c.at(x, y + 1) === 's' && hash(x, y, 703) < 0.6 ? 'e' : undefined));
+    // Dark green leaves crowding into the four corners.
+    const corners = [[0, 0], [40, 0], [0, 30], [40, 30]] as const;
+    for (let i = 0; i < 28; i++) {
+      const [kx, ky] = corners[i % 4]!;
+      const r = 3 + hash(i, 1, 710) * 7;
+      const a = (hash(i, 2, 710) * Math.PI) / 2;
+      const cx = kx + (kx ? -1 : 1) * Math.cos(a) * r;
+      const cy = ky + (ky ? -1 : 1) * Math.sin(a) * r;
+      const col = i % 3 === 0 ? 'g' : 'd';
+      leaf(c, cx, cy, 6 + hash(i, 4, 710) * 3, 2.4, Math.atan2(cy - ky, cx - kx) + (hash(i, 3, 710) - 0.5) * 0.8, col, col === 'g' ? 'd' : 'g');
+    }
+    // The branch across the picture, dark underneath, a twig rising on the right.
+    const br = (x: number): number => 21 + Math.sin(x / 7) * 0.9 - x * 0.05 + (c.noise(x, 0, 3, 720) - 0.5) * 0.6;
+    c.fill((x, y) => {
+      const v = y + 0.5 - br(x);
+      if (v < 0 || v > 2.8 + c.wobble(x, y, 721) * 0.4) return undefined;
+      return v > 2 || hash(x, y, 722) < 0.12 ? 'c' : 'n';
+    });
+    c.curve(33, br(33), 36, 16, 39.5, 13, 'n', 1, 0.7);
+    // The chameleon, drawn in O: body with a ridged back, the casqued head on the left, four gripping legs.
+    c.blob(19.5, 13, 11.5, 6, 'O', undefined, undefined, 730, 0.08);
+    for (let x = 10; x <= 28; x += 2) c.put(x, Math.round(13 - 6 * Math.sqrt(Math.max(0, 1 - ((x + 0.5 - 19.5) / 11.5) ** 2))) - 1, 'O');
+    c.poly([9.5, 8, 9.5, 18.5, 1.5, 15.6, 1, 13, 5.5, 8], 'O');
+    c.poly([4.8, 8.8, 8, 4.8, 11, 8.8], 'O');
+    for (const [x0, x1] of [[12, 10.5], [15.5, 16], [23.5, 24.5], [27, 28.4]] as const) {
+      c.curve(x0, 18, x0 - 1, 19.6, x1, br(x1) + 0.2, 'O', 1.8, 1.3);
+      c.put(Math.round(x1) - 1, Math.round(br(x1)), 'y');
+      c.put(Math.round(x1) + 1, Math.round(br(x1)), 'y');
+    }
+    // The tail: out over the back, down past the branch, and curled into a spiral.
+    const tail = sampled((t) => {
+      if (t < 0.3) {
+        const u = t / 0.3;
+        return [(1 - u) ** 2 * 28.5 + 2 * u * (1 - u) * 36.5 + u * u * 35, (1 - u) ** 2 * 13 + 2 * u * (1 - u) * 10 + u * u * 20.5];
+      }
+      const a = -Math.PI / 2 + ((t - 0.3) / 0.7) * 3.4 * Math.PI;
+      const r = 4 * (1 - ((t - 0.3) / 0.7) * 0.82);
+      return [35 + Math.cos(a) * r, 24.5 + Math.sin(a) * r];
+    });
+    const len = tail[tail.length - 1]![2];
+    tube(c, tail, (s) => 1.9 - (s / len) * 1.1, (s) => (frac(s / 3.2) < 0.3 ? 'r' : 'O'));
+    // Markings: wavering red bands across the body, a yellow stripe low along the side, yellow spots.
+    c.fill((x, y, now) => {
+      if (now !== 'O' || x < 9) return undefined;
+      if (y + 0.5 > 16.8 + (c.noise(x, y, 2, 740) - 0.5) * 1.4) return 'y';
+      if (frac((x + c.noise(x, y, 2.5, 741) * 2.5) / 4) < 0.27) return 'r';
+      return hash(x, y, 742) < 0.08 ? 'y' : undefined;
+    });
+    // The turret eye: a yellow-ringed cone with a dark pupil; the mouth line.
+    c.fill((x, y) => {
+      const d = ell(x, y, 6.6, 11.4, 2.3, 2.3);
+      return d < 0.45 ? 'c' : d < 1 ? 'y' : undefined;
+    });
+    c.line(2, 15, 9, 16, 'r');
+    settle(c, 'O', 'o');
+  },
+};
+
+const flamingo: Scene = {
+  title: 'Flamingo on one leg',
+  ...LARGE,
+  draw(c) {
+    // Sky, the yellow sun top left with a broken orange halo, a white cloud top right shaded grey underneath.
+    c.fill(() => 's');
+    c.fill((x, y) => {
+      const d = ell(x, y, 6, 5, 3.6, 3.6);
+      return d < 1 ? 'y' : d < 1.4 && hash(x, y, 801) < 0.6 ? 'o' : undefined;
+    });
+    c.fill((x, y) => {
+      const d = Math.min(ell(x, y, 33, 5, 6, 2), ell(x, y, 35.5, 3.3, 3.5, 2.2), ell(x, y, 30.5, 4, 2.8, 1.8)) + (c.noise(x, y, 1.5, 802) - 0.5) * 0.3;
+      if (d > 1) return undefined;
+      return y + 0.5 > 5.6 + (c.noise(x, 0, 2, 803) - 0.5) * 1.2 ? 'e' : 'w';
+    });
+    // The far shore: a low dark green treeline.
+    c.fill((x, y) => (y + 0.5 > 13.4 - c.noise(x, 0, 2.5, 804) * 2 && y < 15 ? 'd' : undefined));
+    // The shallows: blue with short sky-blue ripples and white glints; a muddy bank in front.
+    c.fill((x, y) => {
+      if (y < 15) return undefined;
+      if (y + 0.5 > 28.2 + (c.noise(x, 0, 3, 813) - 0.5) * 1.6) return hash(x, y, 814) < 0.2 ? 'g' : 'n';
+      const h = hash(Math.floor((x + hash(0, y, 811) * 7) / 3), y, 812);
+      return h < 0.28 ? 's' : h > 0.97 ? 'w' : 'b';
+    });
+    // The reed beds crowding in at both sides.
+    c.fill((x, y) => {
+      const n = c.noise(0, y, 3, 815) * 2.5;
+      if (y < 9 + hash(x, 0, 816) * 4 || (x > 3 + n && x < 36 - n)) return undefined;
+      return frac((x + y * 0.15) / 2.3) < 0.45 ? 'd' : 'g';
+    });
+    // The flamingo, drawn in K: body and tail, the S of the neck, the head, the standing leg and the folded one.
+    c.blob(24, 12.5, 9.5, 4.8, 'K', undefined, undefined, 820, 0.1);
+    c.poly([31, 10, 37, 9, 36, 14.5, 31, 15.5], 'K');
+    c.curve(17, 11.5, 9.5, 7, 13.5, 4.5, 'K', 3, 2.4);
+    c.curve(13.5, 4.5, 17, 1, 12.5, 1.4, 'K', 2.4, 1.8);
+    c.blob(11.5, 2, 2.6, 1.8, 'K', undefined, undefined, 821, 0.05);
+    c.curve(24, 16, 23.6, 21, 23, 27.5, 'K', 1.7, 1.3);
+    c.line(25, 16, 28, 19, 'K');
+    c.line(28, 19, 25, 21, 'K');
+    c.line(25, 17, 28, 20, 'K');
+    // The beak, white with a dark bent tip; the eye.
+    for (const [x, y, col] of [[9, 2, 'w'], [8, 2, 'w'], [8, 3, 'c'], [7, 3, 'c'], [7, 4, 'c'], [12, 1, 'c']] as const) c.put(x, y, col);
+    // The wing: purple feathers edged in red, the black flight feathers at the tail.
+    c.fill((x, y, now) => {
+      if (now !== 'K') return undefined;
+      const d = ell(x, y, 25, 12, 6, 3);
+      return d < 0.75 ? 'p' : d < 1.05 && y > 11 ? 'r' : undefined;
+    });
+    for (const [x, y] of [[34, 11], [35, 11], [34, 12], [35, 12]] as const) c.put(x, y, 'c');
+    // Ripples ringing the standing leg.
+    c.fill((x, y, now) => (now === 'b' && Math.abs(ell(x, y, 23.5, 27.5, 4, 1) - 1) < 0.25 ? 's' : undefined));
+    settle(c, 'K', 'k');
+    // Reeds along both sides, some topped with brown seed heads.
+    for (let i = 0; i < 26; i++) {
+      const left = i % 2 === 0;
+      const bx = left ? hash(i, 1, 840) * 7 : 33 + hash(i, 1, 840) * 7;
+      const h = 9 + hash(i, 2, 840) * 11;
+      const lean = (hash(i, 3, 840) - 0.5) * 4 + (left ? 0.8 : -0.8);
+      const col = i % 3 === 0 ? 'd' : 'g';
+      c.curve(bx, 30, bx + lean * 0.4, 30 - h * 0.5, bx + lean, 30 - h, col, 1, 0.6);
+      if (hash(i, 4, 840) < 0.45) c.rect(Math.round(bx + lean), Math.round(30 - h), Math.round(bx + lean), Math.round(30 - h) + 2, 'n');
+    }
+  },
+};
+
+const jellyfish: Scene = {
+  title: 'Jellyfish adrift',
+  ...LARGE,
+  overrides: { c: 'v' },
+  draw(c) {
+    // The water: light near the surface, shafts of light slanting down, navy in the deep.
+    c.fill((x, y) => {
+      const t = y + (c.noise(x, y, 6, 901) - 0.5) * 5;
+      if (t < 5.5) return hash(x, y, 905) < 0.05 ? 'w' : 's';
+      if (t > 21 && c.noise(x, y, 4, 902) > 0.4) return 'c';
+      const ray = frac((x - y * 0.35 + c.noise(x, y, 8, 903) * 3) / 9);
+      return ray < 0.16 && y < 20 - hash(x, 0, 904) * 6 ? 's' : 'b';
+    });
+    // The purple seabed with grey pebbles, a little green weed waving up from it.
+    const bed = (x: number): number => 26.5 + (c.noise(x, 0, 5, 910) - 0.5) * 3;
+    c.fill((x, y) => (y + 0.5 > bed(x) ? (hash(x, y, 911) < 0.1 ? 'e' : 'p') : undefined));
+    for (const [bx, h] of [[3, 6], [5, 4], [33, 7], [35.5, 5], [37, 3]] as const)
+      for (let y = 29; y > 29 - h - 1; y--) c.put(Math.round(bx + Math.sin(y / 1.6 + bx) * 0.8), Math.round(y - (29 - bed(bx)) * 0.2), 'g');
+    // Specks drifting in the water.
+    c.fill((x, y, now) => ((now === 'b' || now === 'c') && hash(x, y, 912) < 0.025 ? 'w' : undefined));
+    // Long thin tentacles hanging from the rim, broken here and there.
+    for (let k = 0; k < 10; k++) {
+      const x0 = 10.5 + k * 2.1;
+      const end = 25 + hash(k, 1, 920) * 4;
+      for (let y = 12; y < end; y++) if (hash(k, y, 921) > 0.12) c.put(Math.round(x0 + Math.sin(y / 3 + k) * 1.3 + (y - 12) * (k - 4.5) * 0.04), y, 'k');
+    }
+    // Four frilly oral arms, white down the middle, pink and red frills.
+    for (let k = 0; k < 4; k++) {
+      const cx = 15.2 + k * 3.2;
+      const end = 21 + hash(k, 2, 930) * 4;
+      for (let y = 11; y < end; y++) {
+        const x = Math.round(cx + Math.sin(y / 2.5 + k * 1.7) * 1.4);
+        c.put(x, y, 'w');
+        c.put(x - 1, y, y % 4 === 0 ? 'r' : 'k');
+        c.put(x + 1, y, y % 4 === 2 ? 'r' : 'k');
+      }
+    }
+    // The bell: a pink dome with a scalloped rim dotted red, a white sheen, four orange rings inside.
+    const lip = (x: number): number => 12.4 + 1.3 * Math.abs(Math.sin((x + 0.5) * 0.75));
+    c.fill((x, y) => {
+      if (ell(x, y, 20, 10.5, 12.5, 9.5) > 1 || y + 0.5 > lip(x)) return undefined;
+      if (y + 1.5 > lip(x)) return x % 2 ? 'r' : 'k';
+      if (ell(x, y, 14.5, 4.8, 4, 2.2) < 1 && hash(x, y, 940) < 0.75) return 'w';
+      for (const gx of [13.8, 18, 22, 26.2]) {
+        const g = ell(x, y, gx, 9, 1.8, 1.5);
+        if (g > 0.5 && g < 1.05) return 'o';
+      }
+      return frac((Math.atan2(y + 0.5 - 12, x + 0.5 - 20) * 8) / Math.PI) < 0.12 ? 'p' : 'k';
+    });
+  },
+};
+
+const monkey: Scene = {
+  title: 'Snow monkey taking a bath',
+  ...LARGE,
+  draw(c) {
+    // A grey winter sky over a snowy slope, dark pines crowded on it with snow on their boughs, snow falling.
+    c.fill((x, y) => (y + c.noise(x, 0, 6, 1001) * 3 < 2.5 ? 'e' : 'w'));
+    for (let i = 0; i < 14; i++) pine(c, i * 3.1 - 1 + hash(i, 1, 1002) * 2, 1 + hash(i, 2, 1002) * 6, 21, 2.8 + hash(i, 3, 1002) * 1.6, i % 4 === 3 ? 'g' : 'd');
+    c.fill((x, y, now) => {
+      if (now !== 'd' && now !== 'g') return undefined;
+      if (frac((y + hash(Math.floor(x / 2), 0, 1003) * 3) / 3) < 0.18 && c.noise(x, y, 1.5, 1004) > 0.55) return 'w';
+      return hash(x, y, 1005) < 0.05 ? 'w' : undefined;
+    });
+    // The rocks round the pool, capped with snow.
+    const rim = (x: number): number => 21 + (c.noise(x, 0, 3, 1010) - 0.5) * 1.6;
+    c.fill((x, y) => {
+      const v = y + 0.5 - rim(x);
+      if (v < 0 || v > 1.6 + hash(x, 0, 1011)) return undefined;
+      return v < 0.7 && hash(x, y, 1012) < 0.6 ? 'w' : 'c';
+    });
+    // The hot pool: blue with sky-blue ripples.
+    const pool = (x: number): number => rim(x) + 1.6 + hash(x, 0, 1011);
+    c.fill((x, y) => {
+      if (y + 0.5 < pool(x)) return undefined;
+      return frac((x * 0.7 + Math.sin(y * 1.3) * 2 + y * 2.3) / 5) < 0.2 && hash(x, y, 1013) < 0.7 ? 's' : 'b';
+    });
+    // The monkey, drawn in E: a shaggy head and the shoulders just above the water.
+    c.fill((x, y) => (ell(x, y, 20, 25, 16, 8.5) + (c.noise(x, y, 1.2, 1020) - 0.5) * 0.3 < 1 && y + 0.5 < pool(x) + 0.5 ? 'E' : undefined));
+    c.blob(20, 10.8, 7.4, 6.9, 'E', undefined, undefined, 1021, 0.3);
+    // Fur: dark strands, snow resting on the crown.
+    c.fill((x, y, now) => (now === 'E' && y < 7 && hash(x, y, 1022) < 0.2 ? 'w' : now === 'E' && hash(x, y, 1023) < 0.06 ? 'c' : undefined));
+    // The pink face with red cheeks, dark eyes and brow, the nose and mouth.
+    c.fill((x, y) => (ell(x, y, 20, 11.5, 3.9, 3.3) < 1 ? 'k' : undefined));
+    for (const [x, y, col] of [[17, 12, 'r'], [23, 12, 'r'], [18, 10, 'c'], [22, 10, 'c'], [19, 9, 'e'], [21, 9, 'e'], [20, 12, 'r'], [19, 14, 'c'], [20, 14, 'c'], [21, 14, 'c']] as const) c.put(x, y, col);
+    settle(c, 'E', 'e');
+    // Ripples round the shoulders, steam rising off the water.
+    c.fill((x, y, now) => {
+      const r = ell(x, y, 20, 24, 15, 2);
+      if (now === 'b' && r > 0.85 && r < 1.2) return 's';
+      const n = c.noise(x * 0.7, y * 1.4, 3, 1030);
+      if (y > 20 && (now === 'b' || now === 's') && n > 0.7) return 'w';
+      return undefined;
+    });
+  },
+};
+
+const nest: Scene = {
+  title: 'Nest of blue eggs',
+  ...LARGE,
+  draw(c) {
+    // Leaves everywhere, and a patch of sky at the top with a wisp of cloud.
+    c.fill((x, y) => (c.noise(x, y, 4, 1100) > 0.5 ? 'g' : 'd'));
+    for (let i = 0; i < 40; i++) {
+      const [lx, ly] = [hash(i, 1, 1101) * 44 - 2, hash(i, 2, 1101) * 34 - 2];
+      leaf(c, lx, ly, 5 + hash(i, 3, 1101) * 3, 2.2, hash(i, 4, 1101) * Math.PI, c.at(Math.round(lx), Math.round(ly)) === 'g' ? 'd' : 'g');
+    }
+    c.fill((x, y) => (Math.hypot((x + 0.5 - 22) / 12, (y + 1) / 6) + (c.noise(x, y, 2.5, 1102) - 0.5) * 0.7 < 1 ? 's' : undefined));
+    c.fill((x, y, now) => (now === 's' && ell(x, y, 24, 1.5, 4, 0.9) < 1 ? 'w' : undefined));
+    leaf(c, 14, 3, 6, 2.2, 0.4, 'g', 'd');
+    leaf(c, 31, 4, 6, 2.2, 2.6, 'd', 'g');
+    // A sprig of red berries low on the left.
+    for (const [x, y] of [[4, 25], [5, 26], [3, 27], [6, 24], [35, 26], [36, 27]] as const) c.put(x, y, 'r');
+    // The branch the nest sits in.
+    c.curve(-1, 27, 18, 25, 41, 20, 'n', 1.6, 1.2);
+    // The nest seen from a little above: woven strands round a dark cup lying towards the back.
+    c.fill((x, y) => {
+      const dx = x + 0.5 - 20;
+      const r = Math.hypot(dx, (y + 0.5 - 17) / 0.62) + (c.noise(x, y, 1.3, 1110) - 0.5) * 1.2;
+      if (r > 14) return undefined;
+      const a = Math.atan2((y + 0.5 - 17) / 0.62, dx);
+      if (Math.hypot(dx, (y + 0.5 - 15.8) / 0.62) < 9) return frac(a * 3 + r * 0.9 + c.noise(x, y, 2, 1111)) < 0.25 ? 'n' : 'c';
+      const s = frac(a * 4 + r * 1.3 + c.noise(x, y, 2.5, 1112) * 1.5);
+      return s < 0.35 ? 'n' : s < 0.6 ? 'o' : s < 0.72 ? 'y' : s < 0.85 ? 'n' : 'c';
+    });
+    // Loose straws sticking out of the rim.
+    for (let i = 0; i < 14; i++) {
+      const a = hash(i, 1, 1120) * 2 * Math.PI;
+      const x0 = 20 + Math.cos(a) * 13;
+      const y0 = 17 + Math.sin(a) * 8;
+      c.line(Math.round(x0), Math.round(y0), Math.round(x0 + Math.cos(a) * 2.5), Math.round(y0 + Math.sin(a) * 1.8), i % 3 ? 'n' : 'y');
+    }
+    // Four blue eggs in the cup, each with a sky-blue highlight and a dark speckle.
+    for (const [ex, ey] of [[15, 15.5], [20.5, 13], [26, 15.5], [20.5, 18.3]] as const) {
+      c.fill((x, y) => (ell(x, y, ex, ey, 2.4, 1.7) < 1 ? 'b' : undefined));
+      c.put(Math.round(ex) - 1, Math.round(ey) - 1, 's');
+      c.put(Math.round(ex) + 1, Math.round(ey), 'c');
+    }
+  },
+};
+
+const crab: Scene = {
+  title: 'Red crab on the sand',
+  ...LARGE,
+  draw(c) {
+    // Sky and sea along the top, a line of foam, wet sand, then dry sand with wind ripples, specks and pebbles.
+    const shore = (x: number): number => 7 + c.noise(x, 0, 5, 1201) * 1.5 + Math.sin(x / 4) * 0.5;
+    c.fill((x, y) => {
+      if (y < 2 + c.noise(x, 0, 5, 1202) * 1.5) return 's';
+      if (y + 0.5 < shore(x) - 0.8) return frac((x + y * 3 + hash(0, y, 1203) * 9) / 6) < 0.3 ? 's' : 'b';
+      if (y + 0.5 < shore(x)) return 'w';
+      if (y + 0.5 < shore(x) + 1.5) return hash(x, y, 1204) < 0.5 ? 'o' : 'y';
+      const rip = frac((y + c.noise(x, y, 6, 1205) * 3 + Math.sin(x / 3) * 0.4) / 3.2);
+      const h = hash(x, y, 1206);
+      return rip < 0.18 ? 'o' : h < 0.04 ? 'n' : h < 0.06 ? 'e' : 'y';
+    });
+    // Shells and seaweed on the sand.
+    for (const [x, y, col] of [[3, 25, 'w'], [4, 25, 'w'], [3, 26, 'e'], [35, 27, 'k'], [36, 27, 'k'], [6, 12, 'p'], [7, 12, 'p'], [33, 10, 'g'], [34, 11, 'g'], [35, 11, 'd'], [36, 10, 'g'], [37, 28, 'c']] as const) c.put(x, y, col);
+    // The crab's shadow on the sand.
+    c.blob(20, 22, 12, 2.8, 'o', undefined, undefined, 1210, 0.15);
+    // The crab, drawn in R, mirrored about the middle: legs, arms raised with open claws, eyes on stalks, the shell.
+    for (const m of [(x: number) => x, (x: number) => 40 - x]) {
+      for (let i = 0; i < 4; i++) {
+        c.curve(m(12), 16.5 + i, m(7 - i * 0.6), 15.5 + i * 1.8, m(5.5 - i * 0.9), 21 + i * 2, 'R', 1.5, 1);
+        c.put(Math.floor(m(5.5 - i * 0.9)), Math.round(21 + i * 2), 'c');
+      }
+      c.curve(m(12), 15, m(8), 13, m(7.5), 9.5, 'R', 2, 1.7);
+      c.blob(m(7.5), 7.5, 3.7, 3, 'R', undefined, undefined, 1220, 0.1);
+      c.curve(m(5.8), 6, m(4), 3.5, m(5.8), 1.5, 'R', 1.5, 1);
+      c.curve(m(9.2), 6, m(10.5), 3.5, m(9), 1.8, 'R', 1.4, 0.9);
+      c.curve(m(18), 11, m(17.6), 9.5, m(17), 7.8, 'R', 1, 1);
+      c.fill((x, y) => (ell(x, y, m(16.9), 7, 1, 1) < 1 ? 'c' : undefined));
+    }
+    c.fill((x, y) => (ell(x, y, 20, 15.5, 11, 6) + (c.noise(x, y, 1.5, 1230) - 0.5) * 0.15 < 1 ? 'R' : undefined));
+    // The shell: bumps lit orange on top, a dark lower rim, the mouth; claw tips dark, eye glints white.
+    c.fill((x, y, now) => {
+      if (now !== 'R') return undefined;
+      if (y < 14 && hash(x, y, 1240) < 0.12) return 'o';
+      if (y > 17 && x > 11 && x < 28 && c.at(x, y + 1) !== 'R') return 'c';
+      return undefined;
+    });
+    for (const [x, y, col] of [[19, 20, 'n'], [20, 20, 'n'], [5, 1, 'c'], [34, 1, 'c'], [16, 6, 'w'], [23, 6, 'w']] as const) c.put(x, y, col);
+    settle(c, 'R', 'r');
+  },
+};
+
+const kingfisher: Scene = {
+  title: 'Kingfisher on the dive',
+  ...LARGE,
+  draw(c) {
+    // Leaves fill the background, sun flecks on the light ones, a couple of twigs and red berries.
+    c.fill(() => 'd');
+    for (let i = 0; i < 36; i++) {
+      const col = i % 3 ? 'g' : 'd';
+      leaf(c, 4 + hash(i, 1, 1301) * 32, 4 + hash(i, 2, 1301) * 20, 5 + hash(i, 3, 1301) * 3, 2.3, hash(i, 4, 1301) * Math.PI, col);
+    }
+    c.fill((x, y, now) => (now === 'g' && hash(x, y, 1302) < 0.05 ? 'y' : undefined));
+    c.curve(-1, 6, 6, 4, 12, 0, 'n', 1, 0.7);
+    c.curve(41, 18, 35, 16, 31, 20, 'n', 1, 0.7);
+    for (const [x, y] of [[3, 18], [4, 19], [2, 20], [36, 4], [37, 5]] as const) c.put(x, y, 'r');
+    // The water below: sky-blue with blue rings spreading where the beak points, white glints.
+    const wl = (x: number): number => 26.5 + (c.noise(x, 0, 4, 1310) - 0.5) * 1.5;
+    c.fill((x, y) => {
+      if (y + 0.5 < wl(x)) return undefined;
+      if (hash(x, y, 1311) < 0.06) return 'w';
+      return frac(Math.hypot((x + 0.5 - 20) / 2, y + 0.5 - 28.5) / 1.6) < 0.3 ? 'b' : 's';
+    });
+    // The kingfisher from above, drawn in B: wings spread wide, the body, a short tail up top, the head down low.
+    c.poly([16.5, 9.5, 9, 6, 0.5, 5, 0.5, 11, 5, 15, 11, 17.5, 16.5, 18], 'B');
+    c.poly([23.5, 9.5, 31, 6, 39.5, 5, 39.5, 11, 35, 15, 29, 17.5, 23.5, 18], 'B');
+    c.blob(20, 13, 3.9, 6.5, 'B', undefined, undefined, 1320, 0.05);
+    c.poly([18.4, 8, 21.6, 8, 22, 2, 18, 2], 'B');
+    c.blob(20, 20.8, 3.4, 3.2, 'B', undefined, undefined, 1321, 0.05);
+    // Markings: the bright stripe down the back, sky-blue spots on the wings, dark tips on the flight feathers.
+    c.fill((x, y, now) => {
+      if (now !== 'B') return undefined;
+      if ((x === 19 || x === 20) && y >= 4 && y <= 19) return 's';
+      if (c.at(x, y + 1) !== 'B' && (x < 15 || x > 24) && x % 2 === 0) return 'c';
+      if ((x < 16 || x > 23) && hash(x, y, 1330) < 0.22) return 's';
+      return undefined;
+    });
+    // Orange cheeks and flanks, white patches behind the cheeks, the long dark beak.
+    for (const [x, y, col] of [[17, 20, 'o'], [17, 21, 'o'], [22, 20, 'o'], [22, 21, 'o'], [16, 17, 'o'], [23, 17, 'o'], [17, 19, 'w'], [22, 19, 'w']] as const) c.put(x, y, col);
+    c.poly([19, 23.3, 21, 23.3, 20, 27.6], 'c');
+    settle(c, 'B', 'b');
+  },
+};
+
+const snake: Scene = {
+  title: 'Snake in the leaf litter',
+  ...LARGE,
+  draw(c) {
+    // Dark soil and old brown litter, covered in fallen leaves of every autumn colour.
+    c.fill((x, y) => (hash(x, y, 1402) < 0.06 ? 'c' : c.noise(x, y, 2, 1401) > 0.55 ? 'o' : 'n'));
+    const hue = 'nnooyyrrgp';
+    const vein: Record<string, string> = { n: 'o', o: 'n', y: 'o', r: 'n', g: 'y', p: 'n' };
+    const fallen = (i: number, x: number, y: number, len: number, salt: number): void => {
+      const col = hue[Math.floor(hash(i, 1, salt) * hue.length)]!;
+      leaf(c, x, y, len, 1.8, hash(i, 4, salt) * Math.PI * 2, col, hash(i, 7, salt) < 0.5 ? vein[col] : undefined);
+    };
+    for (let i = 0; i < 75; i++) fallen(i, hash(i, 2, 1410) * 44 - 2, hash(i, 3, 1410) * 34 - 2, 3 + hash(i, 5, 1410) * 2, 1410);
+    // The coral snake winding through: wide red bands, narrow yellow, black; a black snout behind a yellow collar.
+    const body = sampled((t) => [1 + 33 * t, 15 + 7 * Math.sin(t * Math.PI * 2.1 + 0.4) + 1.5 * Math.sin(t * 9)]);
+    const len = body[body.length - 1]![2];
+    tube(
+      c,
+      body,
+      (s) => Math.min(1.7, 0.6 + s / 6),
+      (s) => {
+        const h = len - s;
+        if (h < 2) return 'c';
+        const u = (h - 2) % 7.5;
+        return u < 1 ? 'y' : u < 3 ? 'c' : u < 4 ? 'y' : 'r';
+      },
+    );
+    // Leaves fallen across the snake, so that only parts of it show.
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = body[Math.floor(hash(i, 6, 1420) * body.length)]!;
+      fallen(i, x, y, 3.5, 1420);
+    }
+  },
+};
 
 export const PORTFOLIO: readonly Scene[] = [
   {
@@ -1327,4 +1916,14 @@ export const PORTFOLIO: readonly Scene[] = [
       c.speckle('d', 'rykpo', 0.05, 3207);
     },
   },
+  giraffe,
+  bonsai,
+  chameleon,
+  flamingo,
+  jellyfish,
+  monkey,
+  nest,
+  crab,
+  kingfisher,
+  snake,
 ];
